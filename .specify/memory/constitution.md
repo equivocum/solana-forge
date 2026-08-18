@@ -58,11 +58,11 @@ Progression requires passing each gate with working code + visualization:
 
 | Gate | Name | Requirement | Verification |
 |------|------|-------------|--------------|
-| 1 | **Tx Signing** | Generate keypair, sign message, verify signature locally | `cargo test gate1` shows ed25519 sign/verify |
-| 2 | **RPC Submit** | Build tx, send via RPC, receive signature, poll status | `cargo test gate2` shows RPC response + simulation |
-| 3 | **Validator Process** | Run local validator, submit tx, observe logs: execute → vote → produce | `cargo test gate3` captures validator log stages |
-| 4 | **Block Finalize** | Confirm block rooted, query finalized slot, show fork choice | `cargo test gate4` shows commitment level = Finalized |
-| 5 | **Fork Resolution** | Create competing forks, observe heaviest-fork win, log slashing | `cargo test gate5` demonstrates fork choice rule |
+| 1 | **Tx Signing** | Generate keypair, sign message, verify signature locally | `npm run test:gate1` shows ed25519 sign/verify |
+| 2 | **RPC Submit** | Build tx, send via RPC, receive signature, poll status | `npm run test:gate2` shows RPC response + simulation |
+| 3 | **Validator Process** | Run local validator, submit tx, observe logs: execute → vote → produce | `npm run test:gate3` captures validator log stages |
+| 4 | **Block Finalize** | Confirm block rooted, query finalized slot, show fork choice | `npm run test:gate4` shows commitment level = Finalized |
+| 5 | **Fork Resolution** | Create competing forks, observe heaviest-fork win, log slashing | `npm run test:gate5` demonstrates fork choice rule |
 
 Each gate must produce: working code, Mermaid diagram, terminal visualization, annotated execution log.
 
