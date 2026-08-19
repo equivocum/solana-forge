@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Not explicitly requested in feature specification. Tests are OPTIONAL.
+**Tests**: REQUIRED per constitution Learning Milestone Gates and FR-010. All 5 gates must pass `npm run test:gateN` verification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -58,6 +58,11 @@
 - [ ] T025b Define napi-rs TypeScript interface in packages/shared/types/native.ts (simulation, validator, rpc, poh APIs + contract types: SimulationResult, PohTick, SlashingEvent, ValidatorConfig, ProcessResult, ValidatorState)
 - [ ] T025c Define diagram data contracts in packages/shared/types/diagrams.ts (TransactionFlowData, BlockLifecycleData, ForkResolutionData)
 - [ ] T026 Build and test native module compilation with npm run build:native
+- [ ] T026b Write Rust unit tests for packages/native/src/poh.rs (PoH hash chain correctness)
+- [ ] T026c Write Rust unit tests for packages/native/src/validator.rs (validator state transitions)
+- [ ] T026d Write Rust unit tests for packages/native/src/rpc.rs (RPC simulation layer)
+- [ ] T026e Write Rust unit tests for packages/native/src/simulation.rs (simulation core logic)
+- [ ] T026f Verify all Rust tests pass via `cargo test` in packages/native/
 - [ ] T027 Create base React App component in packages/frontend/src/App.tsx
 - [ ] T028 Create Dashboard component skeleton in packages/frontend/src/components/Dashboard.tsx
 - [ ] T029 Create GateSelector component in packages/frontend/src/components/GateSelector.tsx
@@ -98,6 +103,7 @@
 - [ ] T048 [US1] Add // WHY: ed25519 signing proves ownership annotation on signing lines
 - [ ] T049 [US1] Add // BYTES: hex annotations for key material and signatures
 - [ ] T050 [US1] Add // REF: cross-references linking crypto operations
+- [ ] T050b [US1] Add // HOW: annotations explaining implementation mechanics at each crypto step
 
 ### Game Integration for Gate 1
 - [ ] T033b [US1+US6] Create Factory component skeleton in packages/frontend/src/game/Factory.tsx with // REF: client_signing.rs
@@ -130,6 +136,7 @@
 - [ ] T063 [US2] Add // STAGE: rpc_submit annotation on RPC operations
 - [ ] T064 [US2] Add // WHY: RPC forwards to leader via gossip annotation
 - [ ] T065 [US2] Add commitment level explanations (Processed/Confirmed/Finalized)
+- [ ] T065f [US2] Add // HOW: annotations explaining RPC simulation and forwarding mechanics
 - [ ] T065b [US2] Implement RPC unreachable error handling with retry logic and annotation
 - [ ] T065c [US2] Implement blockhash expiry detection with // DECISION: annotation
 - [ ] T065d [US2] Implement duplicate transaction (same signature) detection with // WHY: annotation
@@ -171,6 +178,7 @@
 - [ ] T083 [US3] Add // WHY: Validator executes transactions sequentially annotation
 - [ ] T084 [US3] Add // DECISION: leader selected via stake-weighted schedule annotation
 - [ ] T085 [US3] Add // DECISION: vote tower depth=32 lockout annotation
+- [ ] T085b [US3] Add // HOW: annotations explaining validator execution and block production mechanics
 
 ### Game Integration for Gate 3
 - [ ] T066b [US3+US6] Create QCStation component in packages/frontend/src/game/QCStation.tsx with // DECISION: vote tower lockout=32
@@ -200,6 +208,7 @@
 - [ ] T095 [US4] Add vote threshold explanation display
 - [ ] T096 [US4] Add // WHY: 2/3 stake weight required for finalization annotation
 - [ ] T097 [US4] Add // DECISION: fork choice rule selected heaviest fork annotation
+- [ ] T097b [US4] Add // HOW: annotations explaining commitment tracking and finalization mechanics
 - [ ] T098 [US4] Add fork visualization with losing fork discard display
 - [ ] T098b [US4] Implement insufficient stake for supermajority scenario with annotation
 
@@ -235,6 +244,7 @@
 - [ ] T112 [US5] Add Mermaid diagram for fork resolution flow
 - [ ] T113 [US5] Add // DECISION: heaviest fork (by stake weight) wins annotation
 - [ ] T114 [US5] Add // WHY: slashing deters equivocation annotation
+- [ ] T114b [US5] Add // HOW: annotations explaining fork resolution and slashing mechanics
 - [ ] T115 [US5] Add partition healing and convergence visualization
 
 ### Game Integration for Gate 5
@@ -274,6 +284,7 @@
 - [ ] T134 [P] Add frame-by-frame PoH tick animation
 - [ ] T135 [P] Add cross-reference links (// REF: file:line) in all annotations
 - [ ] T136 Implement variable speed simulation with slow-motion toggle
+- [ ] T136b Implement step-by-step simulation control (manual tick advancement)
 - [ ] T137 Implement speed slider (0.25x - 4x) UI control
 - [ ] T138 Add private key mask/unmask toggle across all gates
 - [ ] T139 Add error display without halting (mirror real Solana behavior)
@@ -286,6 +297,7 @@
 - [ ] T145 Run all gate tests via `npm run test:gate1` through `npm run test:gate5` and verify pass/fail behavior
 - [ ] T146 Build mapping fidelity verification script (verify // REF: cross-refs for all game components)
 - [ ] T147 Audit all crypto operations for // BYTES: and // WHY: coverage
+- [ ] T147b Add performance budget verification: visualization updates within 100ms, PoH animation at target frame rate
 - [ ] T148 Implement game state versioning and migration strategy for localStorage/IndexedDB
 
 ---
@@ -396,12 +408,12 @@ With multiple developers:
 | Phase | Tasks | Parallel Tasks |
 |-------|-------|----------------|
 | Setup | 12 | 4 |
-| Foundational | 20 | 0 |
-| US1 (Tx Signing) | 18 | 0 |
-| US2 (RPC Submit) | 15 | 0 |
-| US3 (Validator Process) | 20 | 0 |
-| US4 (Block Finalize) | 13 | 0 |
-| US5 (Fork Resolution) | 17 | 0 |
+| Foundational | 25 | 0 |
+| US1 (Tx Signing) | 19 | 0 |
+| US2 (RPC Submit) | 16 | 0 |
+| US3 (Validator Process) | 21 | 0 |
+| US4 (Block Finalize) | 14 | 0 |
+| US5 (Fork Resolution) | 18 | 0 |
 | US6 (Game Integration) | 13 | 0 |
-| Polish | 17 | 6 |
-| **Total** | **145** | **10** |
+| Polish | 19 | 8 |
+| **Total** | **157** | **12** |

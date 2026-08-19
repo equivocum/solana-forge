@@ -16,7 +16,7 @@ Build an interactive web-based learning tool that teaches Solana blockchain inte
 
 **Storage**: localStorage/IndexedDB (game state, learner progress, transaction history)
 
-**Testing**: Vitest (unit/integration), Playwright (e2e if needed), Cargo test (Rust native modules)
+**Testing**: Vitest (unit/integration), Cargo test (Rust native modules)
 
 **Target Platform**: Web (Chrome/Firefox/Safari), runs locally on Linux/macOS/Windows with Node.js 18+
 
