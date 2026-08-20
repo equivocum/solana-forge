@@ -21,7 +21,6 @@ A **Guided Tour** mode walks through the full Solana validator architecture (18 
 ### Prerequisites
 
 - **Node.js** 18+
-- **Rust** (latest stable, via [rustup](https://rustup.rs/))
 - **pnpm** 9+
 
 ### Install & Run
@@ -33,9 +32,6 @@ cd solana-forge
 
 # Install dependencies
 pnpm install
-
-# Build the native Rust module
-pnpm build:native
 
 # Start the dev server
 pnpm dev
@@ -55,12 +51,9 @@ solana-forge/
 │   │   │   ├── game/          # Manufacturing game (Factory, Conveyor, QC)
 │   │   │   ├── hooks/         # React hooks (annotations, progress, simulation)
 │   │   │   └── services/      # Crypto, RPC, validator, storage services
-│   │   └── eslint-plugin-solana-forge/  # Architectural boundary lint rule
-│   ├── native/            # Rust module (napi-rs) — PoH, validator, simulation
 │   └── shared/            # Shared TypeScript types
 ├── tests/
-│   ├── gate/              # Gate-level tests (gate1–gate5)
-│   └── integration/       # Architectural boundary tests
+│   └── gate/              # Gate-level tests (gate1–gate5)
 ├── specs/                 # Feature specifications and design docs
 └── logs/                  # JSONL execution logs
 ```
@@ -137,8 +130,6 @@ pnpm lint
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS |
 | Diagrams | Mermaid.js |
 | Crypto | @noble/ed25519 |
-| Native Module | Rust (napi-rs) |
-| Solana Simulation | solana-poh, solana-runtime, solana-ledger, solana-vote-program (Agave crates) |
 | Testing | Vitest, @testing-library/react |
 | Monorepo | pnpm workspaces |
 
@@ -146,8 +137,7 @@ pnpm lint
 
 1. Follow existing code conventions (no semicolons, single quotes, 2-char indentation)
 2. Every new component must include `// STAGE:` annotation at the top
-3. Architectural boundary rule is enforced — no direct imports from `@solana-forge/native` in frontend code
-4. Run `pnpm lint` and `pnpm test` before committing
+3. Run `pnpm lint` and `pnpm test` before committing
 
 ## License
 

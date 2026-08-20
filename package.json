@@ -9,7 +9,6 @@
   "scripts": {
     "dev": "npm run dev --workspace=packages/frontend",
     "build": "npm run build --workspace=packages/frontend",
-    "build:native": "npm run build:native --workspace=packages/native",
     "test": "vitest run",
     "test:gate1": "vitest run tests/gate/gate1.test.ts",
     "test:gate2": "vitest run tests/gate/gate2.test.ts",

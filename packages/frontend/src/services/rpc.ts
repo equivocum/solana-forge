@@ -110,7 +110,7 @@ export function createRpcService(): RpcService {
     },
 
     async simulateTransaction(tx: Transaction): Promise<SimulationResult> {
-      // Mock simulation - in real implementation, this calls native module
+      // Mock simulation
       return {
         success: true,
         logs: [
