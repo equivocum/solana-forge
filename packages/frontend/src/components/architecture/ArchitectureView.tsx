@@ -17,10 +17,12 @@ type ViewMode = 'pipeline' | 'layered'
 interface ArchitectureViewProps {
   viewMode: ViewMode
   isSimulating: boolean
+  tourActive: boolean
   simSpeed: number
   slowMotion: boolean
   simStep: number
   onSimStepChange: (step: number) => void
+  onPause: () => void
   onNext: () => void
   onBack: () => void
   onResume: () => void
@@ -29,10 +31,12 @@ interface ArchitectureViewProps {
 export function ArchitectureView({
   viewMode,
   isSimulating,
+  tourActive,
   simSpeed,
   slowMotion,
   simStep,
   onSimStepChange,
+  onPause,
   onNext,
   onBack,
   onResume,
@@ -122,7 +126,7 @@ export function ArchitectureView({
       )}
 
       {/* Simulation sidebar (when tour is active) */}
-      {isSimulating && (
+      {tourActive && (
         <div className="w-80 ml-4 flex-shrink-0">
           <SimulationSidebar
             isRunning={isSimulating}
@@ -131,7 +135,7 @@ export function ArchitectureView({
             currentStep={simStep}
             totalSteps={SIMULATION_STEPS.length}
             onStepChange={handleSimStepChangeWrapper}
-            onPause={() => {}}
+            onPause={onPause}
             onResume={onResume}
             onNext={onNext}
             onBack={onBack}

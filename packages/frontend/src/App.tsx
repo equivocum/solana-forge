@@ -153,10 +153,12 @@ function App() {
           <ArchitectureView
             viewMode={viewMode}
             isSimulating={isSimulating}
+            tourActive={tourActive}
             simSpeed={simSpeed}
             slowMotion={slowMotion}
             simStep={simStep}
             onSimStepChange={handleSimStepChange}
+            onPause={handleSimPause}
             onNext={handleSimNext}
             onBack={handleSimBack}
             onResume={handleSimResume}

@@ -156,7 +156,7 @@ export function PipelineFlowView({
           <span className="text-sm font-bold text-pink-400 uppercase tracking-wide">Core Programs</span>
           <span className="text-xs text-gray-500">(Compiled into validator binary)</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {SHARED_COMPONENTS.filter(c => c.layer === 'programs').map((comp) => (
             <ComponentNode
               key={comp.id}
