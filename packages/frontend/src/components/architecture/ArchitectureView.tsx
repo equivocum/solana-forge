@@ -6,8 +6,8 @@ import { PipelineFlowView } from './PipelineFlowView'
 import { LayeredView } from './LayeredView'
 import { ZoomPanel } from './ZoomPanel'
 import { TransactionBubble } from './TransactionBubble'
-import { SimulationOverlay } from './SimulationOverlay'
-import { ALL_COMPONENTS, TX_LIFECYCLE_PATH } from './data'
+import { SimulationSidebar } from './SimulationSidebar'
+import { ALL_COMPONENTS, TX_LIFECYCLE_PATH, SIMULATION_STEPS } from './data'
 import type { ArchitectureComponent } from './data/components'
 import { useAnnotations } from '../../hooks/useAnnotations'
 
@@ -21,6 +21,9 @@ interface ArchitectureViewProps {
   slowMotion: boolean
   simStep: number
   onSimStepChange: (step: number) => void
+  onNext: () => void
+  onBack: () => void
+  onResume: () => void
 }
 
 export function ArchitectureView({
@@ -30,6 +33,9 @@ export function ArchitectureView({
   slowMotion,
   simStep,
   onSimStepChange,
+  onNext,
+  onBack,
+  onResume,
 }: ArchitectureViewProps) {
   // // STAGE: architecture_state
   const [activeComponent, setActiveComponent] = useState<string | null>(null)
@@ -74,13 +80,13 @@ export function ArchitectureView({
       setActiveComponent(componentId)
       setHoveredComponent(ALL_COMPONENTS.find(c => c.id === componentId) || null)
     }
-    }, [onSimStepChange])
+  }, [onSimStepChange])
 
   // // STAGE: architecture_render
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex">
       {/* Main content area */}
-      <div className="flex-1 bg-gray-800/30 rounded-xl p-4 overflow-visible">
+      <div className="flex-1 bg-gray-800/30 rounded-xl p-4 overflow-visible min-w-0">
         {viewMode === 'pipeline' ? (
           <PipelineFlowView
             activeComponent={activeComponent}
@@ -115,18 +121,22 @@ export function ArchitectureView({
         />
       )}
 
-      {/* Simulation overlay (when simulating) */}
+      {/* Simulation sidebar (when tour is active) */}
       {isSimulating && (
-        <SimulationOverlay
-          isRunning={isSimulating}
-          speed={simSpeed}
-          slowMotion={slowMotion}
-          currentStep={simStep}
-          onStepChange={handleSimStepChangeWrapper}
-          onStart={() => {}}
-          onPause={() => {}}
-          onReset={() => {}}
-        />
+        <div className="w-80 ml-4 flex-shrink-0">
+          <SimulationSidebar
+            isRunning={isSimulating}
+            speed={simSpeed}
+            slowMotion={slowMotion}
+            currentStep={simStep}
+            totalSteps={SIMULATION_STEPS.length}
+            onStepChange={handleSimStepChangeWrapper}
+            onPause={() => {}}
+            onResume={onResume}
+            onNext={onNext}
+            onBack={onBack}
+          />
+        </div>
       )}
 
       {/* Zoom panel (on click) */}

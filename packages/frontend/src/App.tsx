@@ -10,6 +10,7 @@ type ViewMode = 'pipeline' | 'layered'
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline')
   const [isSimulating, setIsSimulating] = useState(false)
+  const [tourActive, setTourActive] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1)
   const [slowMotion, setSlowMotion] = useState(false)
   const [simStep, setSimStep] = useState(0)
@@ -18,6 +19,7 @@ function App() {
 
   const handleSimStart = useCallback(() => {
     setIsSimulating(true)
+    setTourActive(true)
     setSimStep(0)
     addAnnotation('STAGE', 'Guided Tour started — watching transaction flow through Solana validator', 'simulation', 1)
   }, [addAnnotation])
@@ -26,13 +28,26 @@ function App() {
     setIsSimulating(false)
   }, [])
 
+  const handleSimResume = useCallback(() => {
+    setIsSimulating(true)
+  }, [])
+
   const handleSimReset = useCallback(() => {
     setIsSimulating(false)
+    setTourActive(false)
     setSimStep(0)
   }, [])
 
   const handleSimStepChange = useCallback((step: number) => {
     setSimStep(step)
+  }, [])
+
+  const handleSimNext = useCallback(() => {
+    setSimStep(s => Math.min(s + 1, 17))
+  }, [])
+
+  const handleSimBack = useCallback(() => {
+    setSimStep(s => Math.max(s - 1, 0))
   }, [])
 
   return (
@@ -69,7 +84,7 @@ function App() {
 
             {/* Simulation controls */}
             <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
-              {!isSimulating ? (
+              {!tourActive ? (
                 <button
                   onClick={handleSimStart}
                   className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
@@ -78,12 +93,21 @@ function App() {
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={handleSimPause}
-                    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md text-xs font-medium text-white"
-                  >
-                    ⏸ Pause
-                  </button>
+                  {!isSimulating ? (
+                    <button
+                      onClick={handleSimResume}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
+                    >
+                      ▶ Resume
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSimPause}
+                      className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md text-xs font-medium text-white"
+                    >
+                      ⏸ Pause
+                    </button>
+                  )}
                   <button
                     onClick={handleSimReset}
                     className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md text-xs font-medium text-white"
@@ -125,14 +149,19 @@ function App() {
 
       {/* // STAGE: app_main */}
       <main className="p-4 h-[calc(100vh-57px)]">
-        <ArchitectureView
-          viewMode={viewMode}
-          isSimulating={isSimulating}
-          simSpeed={simSpeed}
-          slowMotion={slowMotion}
-          simStep={simStep}
-          onSimStepChange={handleSimStepChange}
-        />
+        <div className="max-w-[1400px] mx-auto h-full">
+          <ArchitectureView
+            viewMode={viewMode}
+            isSimulating={isSimulating}
+            simSpeed={simSpeed}
+            slowMotion={slowMotion}
+            simStep={simStep}
+            onSimStepChange={handleSimStepChange}
+            onNext={handleSimNext}
+            onBack={handleSimBack}
+            onResume={handleSimResume}
+          />
+        </div>
       </main>
     </div>
   )
