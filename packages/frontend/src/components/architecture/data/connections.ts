@@ -64,18 +64,24 @@ export const ALL_CONNECTIONS: Connection[] = [
 ]
 
 // Transaction lifecycle path (for animated bubble)
+// Follows the complete Solana transaction flow: Leader TPU → Turbine → Validator TVU
+// accounts-db appears twice: once for leader commit (after SVM), once for validator commit (after replay)
 export const TX_LIFECYCLE_PATH = [
   'quic-streamer',
   'tpu-fetch',
   'sig-verify',
+  'status-cache',
   'banking-stage',
   'svm-pipeline',
+  'accounts-db',
   'poh-recording',
   'broadcast',
   'turbine',
   'shred-fetch',
   'shred-sig-verify',
   'window-service',
+  'blockstore',
   'replay-stage',
+  'accounts-db',
   'tower-bft',
 ]
