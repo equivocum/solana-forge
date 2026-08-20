@@ -1,20 +1,16 @@
 # Solana Forge
 
-Learn Solana blockchain internals through an interactive manufacturing game. Trace a transaction from signing to finalization, with every decision, cryptographic operation, and consensus mechanism fully annotated.
+Interactive visualization of Solana validator internals. Trace a transaction from signing to finalization through an 18-step guided tour, with every component, cryptographic operation, and consensus mechanism fully annotated.
 
 ## What You'll Learn
 
-Solana Forge teaches the complete Solana block lifecycle through 5 progressive gates:
+The guided tour walks through the complete Solana validator architecture:
 
-| Gate | Topic | What You'll Understand |
-|------|-------|----------------------|
-| 1 | **Transaction Signing** | Generate ed25519 keypairs, sign messages, verify signatures |
-| 2 | **RPC Submit** | Build transactions, submit to RPC, poll commitment status |
-| 3 | **Validator Process** | Start a validator, process transactions, produce blocks, cast votes |
-| 4 | **Block Finalize** | Track commitment progression: Processed → Confirmed → Finalized |
-| 5 | **Fork Resolution** | Create competing forks, observe voting/resolution, heal partitions |
+- **TPU Pipeline (Leader Path)**: QUIC Streamer → Fetch → SigVerify → Status Cache → Banking Stage → SVM → AccountsDB → PoH Recording → Broadcast
+- **TVU Pipeline (Validator Path)**: Turbine → Shred Fetch → Shred SigVerify → Window Service → Blockstore → Replay Stage → AccountsDB → Tower BFT
+- **Consensus**: Fork choice, voting, leader rotation, finalization
 
-A **Guided Tour** mode walks through the full Solana validator architecture (18 steps), covering the TPU pipeline (leader path) and TVU pipeline (validator path) with annotated explanations at every stage.
+Click any component to see detailed internals including purpose, role, how it works, and why it matters.
 
 ## Quick Start
 
@@ -26,67 +22,51 @@ A **Guided Tour** mode walks through the full Solana validator architecture (18 
 ### Install & Run
 
 ```bash
-# Clone the repo
 git clone git@github.com:equivocum/solana-forge.git
 cd solana-forge
-
-# Install dependencies
 pnpm install
-
-# Start the dev server
 pnpm dev
 ```
 
-The dashboard opens at `http://localhost:5173`.
+The app opens at `http://localhost:5173`.
 
 ## Project Structure
 
 ```
 solana-forge/
-├── packages/
-│   ├── frontend/          # React + Vite + TypeScript UI
-│   │   ├── src/
-│   │   │   ├── components/    # Architecture visualization, diagrams, pipeline
-│   │   │   ├── gates/         # 5 learning gate components
-│   │   │   ├── game/          # Manufacturing game (Factory, Conveyor, QC)
-│   │   │   ├── hooks/         # React hooks (annotations, progress, simulation)
-│   │   │   └── services/      # Crypto, RPC, validator, storage services
-│   └── shared/            # Shared TypeScript types
+├── src/
+│   ├── App.tsx                          # Main entry, simulation state
+│   ├── components/architecture/         # Architecture visualization
+│   │   ├── ArchitectureView.tsx         # Main container with tour logic
+│   │   ├── PipelineFlowView.tsx         # Pipeline layout (data flow)
+│   │   ├── LayeredView.tsx              # C4-style layered layout
+│   │   ├── ComponentNode.tsx            # Interactive component node
+│   │   ├── TransactionBubble.tsx        # Animated tx lifecycle bubble
+│   │   ├── SimulationSidebar.tsx        # Step info, annotations, controls
+│   │   ├── ZoomPanel.tsx                # Detailed component inspector
+│   │   └── data/                        # Architecture definitions
+│   │       ├── components.ts            # 22 validator components
+│   │       ├── connections.ts           # Data flow + tx lifecycle path
+│   │       └── simulation-steps.ts      # 18-step guided tour sequence
+│   ├── hooks/useAnnotations.ts          # Annotation state management
+│   ├── services/
+│   │   ├── annotations.ts               # Annotation creation + formatting
+│   │   ├── annotationTheme.ts           # Color/icon mapping per type
+│   │   ├── executionLog.ts              # IndexedDB-backed execution logs
+│   │   └── storage.ts                   # IndexedDB tx/annotation/block storage
+│   └── types/index.ts                   # Shared TypeScript interfaces
 ├── tests/
-│   └── gate/              # Gate-level tests (gate1–gate5)
-├── specs/                 # Feature specifications and design docs
-└── logs/                  # JSONL execution logs
+│   └── data-consistency.test.ts         # Verifies data structures stay in sync
+├── specs/                               # Feature specifications
+└── logs/                                # JSONL execution logs
 ```
 
-## The Manufacturing Game
+## Architecture Views
 
-Abstract blockchain concepts are mapped 1:1 to tangible factory operations:
+Two visualization modes:
 
-| Manufacturing Concept | Solana Concept |
-|---|---|
-| Factory | Validator |
-| Conveyor Belt | Proof of History (PoH) |
-| Raw Material | Transaction |
-| QC Station | Voting / Vote Tower |
-| Shipment | Finalized Block |
-| Defective Batch | Fork |
-| Shift Schedule | Leader Schedule |
-| Quality Metrics | Vote Tower / Lockout |
-
-Every game action is annotated with its Solana counterpart and a cross-reference to the source code.
-
-## Architecture
-
-Solana Forge visualizes two core data flows:
-
-- **TPU Pipeline (Leader Path)**: QUIC Streamer → Gulf Stream → Gossip → Fetch → SigVerify → Banking Stage → PoH Recording → Broadcast
-- **TVU Pipeline (Validator Path)**: Shred Fetch → SigVerify → Window Service → Replay Stage → Retransmit
-
-The architecture view supports two modes:
-- **Pipeline Flow**: See data flow through all 17 components
+- **Pipeline Flow**: See data flow through all 18 components with the animated transaction bubble tracing the full lifecycle
 - **Layered View**: Components organized by layer (networking, TPU, TVU, runtime, consensus, storage)
-
-Click any component to see detailed internals including purpose, role, how it works, why it matters, and live metrics.
 
 ## Annotation System
 
@@ -101,10 +81,7 @@ Every code path and UI element carries structured annotations using 6 marker typ
 | `// DECISION:` | Consensus and architectural decisions |
 | `// BYTES:` | Raw byte-level data visibility |
 
-Annotations appear in three views:
-1. **Side panel** — Live annotation feed with clickable cross-references
-2. **Inline tooltips** — Contextual explanations on diagram nodes/edges
-3. **Execution log** — Step-by-step expandable details per gate
+Annotations appear in the sidebar with clickable cross-references to the [Agave validator source](https://github.com/anza-xyz/agave).
 
 ## Testing
 
@@ -112,32 +89,26 @@ Annotations appear in three views:
 # Run all tests
 pnpm test
 
-# Run individual gate tests
-pnpm test:gate1
-pnpm test:gate2
-pnpm test:gate3
-pnpm test:gate4
-pnpm test:gate5
-
-# Lint
-pnpm lint
+# Type check
+npx tsc --noEmit
 ```
+
+The data consistency test verifies that `TX_LIFECYCLE_PATH`, `SIMULATION_STEPS`, and `ALL_COMPONENTS` stay in sync — catching drift between the guided tour steps and the architecture component definitions.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
-| Diagrams | Mermaid.js |
-| Crypto | @noble/ed25519 |
-| Testing | Vitest, @testing-library/react |
-| Monorepo | pnpm workspaces |
+| Frontend | React 18, TypeScript 5.9, Vite 6.4, Tailwind CSS 4.3 |
+| Crypto | @noble/ed25519 v3 |
+| Testing | Vitest 3.2, @testing-library/react |
+| Storage | IndexedDB + localStorage |
 
 ## Contributing
 
 1. Follow existing code conventions (no semicolons, single quotes, 2-char indentation)
 2. Every new component must include `// STAGE:` annotation at the top
-3. Run `pnpm lint` and `pnpm test` before committing
+3. Run `pnpm test` and `npx tsc --noEmit` before committing
 
 ## License
 
