@@ -3,14 +3,11 @@
 
 import { useState, useCallback } from 'react'
 import { ArchitectureView } from './components/architecture'
-import { Dashboard } from './components/Dashboard'
 import { useAnnotations } from './hooks/useAnnotations'
 
-type AppTab = 'tour' | 'gates'
 type ViewMode = 'pipeline' | 'layered'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('tour')
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline')
   const [isSimulating, setIsSimulating] = useState(false)
   const [tourActive, setTourActive] = useState(false)
@@ -65,111 +62,87 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Top-level tab switcher */}
+            {/* View mode toggle */}
             <div className="flex bg-gray-800 rounded-lg p-1">
               <button
-                onClick={() => setActiveTab('tour')}
+                onClick={() => setViewMode('pipeline')}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === 'tour' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  viewMode === 'pipeline' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Guided Tour
+                Pipeline Flow
               </button>
               <button
-                onClick={() => setActiveTab('gates')}
+                onClick={() => setViewMode('layered')}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  activeTab === 'gates' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  viewMode === 'layered' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Learning Gates
+                Layered
               </button>
             </div>
 
-            {/* View mode toggle (only in tour mode) */}
-            {activeTab === 'tour' && (
-              <div className="flex bg-gray-800 rounded-lg p-1">
+            {/* Simulation controls */}
+            <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
+              {!tourActive ? (
                 <button
-                  onClick={() => setViewMode('pipeline')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    viewMode === 'pipeline' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={handleSimStart}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
                 >
-                  Pipeline Flow
+                  ▶ Guided Tour
                 </button>
-                <button
-                  onClick={() => setViewMode('layered')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    viewMode === 'layered' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  Layered
-                </button>
-              </div>
-            )}
-
-            {/* Simulation controls (only in tour mode) */}
-            {activeTab === 'tour' && (
-              <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
-                {!tourActive ? (
+              ) : (
+                <>
+                  {!isSimulating ? (
+                    <button
+                      onClick={handleSimResume}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
+                    >
+                      ▶ Resume
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSimPause}
+                      className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md text-xs font-medium text-white"
+                    >
+                      ⏸ Pause
+                    </button>
+                  )}
                   <button
-                    onClick={handleSimStart}
-                    className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
+                    onClick={handleSimReset}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md text-xs font-medium text-white"
                   >
-                    ▶ Guided Tour
+                    ↺ Reset
                   </button>
-                ) : (
-                  <>
-                    {!isSimulating ? (
-                      <button
-                        onClick={handleSimResume}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
-                      >
-                        ▶ Resume
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleSimPause}
-                        className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md text-xs font-medium text-white"
-                      >
-                        ⏸ Pause
-                      </button>
-                    )}
-                    <button
-                      onClick={handleSimReset}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md text-xs font-medium text-white"
-                    >
-                      ↺ Reset
-                    </button>
-                  </>
-                )}
+                </>
+              )}
 
-                {/* Speed control */}
-                <div className="flex items-center gap-1 px-2">
-                  <span className="text-[10px] text-gray-400">Speed:</span>
-                  {[0.5, 1, 2].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setSimSpeed(s)}
-                      className={`px-1.5 py-0.5 rounded text-[10px] ${
-                        simSpeed === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {s}x
-                    </button>
-                  ))}
-                </div>
-
-                {/* Slow motion toggle */}
-                <button
-                  onClick={() => setSlowMotion(p => !p)}
-                  className={`px-2 py-1 rounded text-[10px] ${
-                    slowMotion ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  🐢 Slow
-                </button>
+              {/* Speed control */}
+              <div className="flex items-center gap-1 px-2">
+                <span className="text-[10px] text-gray-400">Speed:</span>
+                {[0.5, 1, 2].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setSimSpeed(s)}
+                    className={`px-1.5 py-0.5 rounded text-[10px] ${
+                      simSpeed === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
               </div>
-            )}
+
+              {/* Slow motion toggle */}
+              <button
+                onClick={() => setSlowMotion(p => !p)}
+                className={`px-2 py-1 rounded text-[10px] ${
+                  slowMotion ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🐢 Slow
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -177,23 +150,19 @@ function App() {
       {/* // STAGE: app_main */}
       <main className="p-4 flex-1 flex flex-col min-h-0">
         <div className="max-w-[1400px] mx-auto w-full flex-1 flex flex-col min-h-0">
-          {activeTab === 'tour' ? (
-            <ArchitectureView
-              viewMode={viewMode}
-              isSimulating={isSimulating}
-              tourActive={tourActive}
-              simSpeed={simSpeed}
-              slowMotion={slowMotion}
-              simStep={simStep}
-              onSimStepChange={handleSimStepChange}
-              onPause={handleSimPause}
-              onNext={handleSimNext}
-              onBack={handleSimBack}
-              onResume={handleSimResume}
-            />
-          ) : (
-            <Dashboard />
-          )}
+          <ArchitectureView
+            viewMode={viewMode}
+            isSimulating={isSimulating}
+            tourActive={tourActive}
+            simSpeed={simSpeed}
+            slowMotion={slowMotion}
+            simStep={simStep}
+            onSimStepChange={handleSimStepChange}
+            onPause={handleSimPause}
+            onNext={handleSimNext}
+            onBack={handleSimBack}
+            onResume={handleSimResume}
+          />
         </div>
       </main>
     </div>

@@ -1,13 +1,7 @@
-// Storage Service - localStorage + IndexedDB implementation
+// Storage Service - IndexedDB implementation
 // // STAGE: storage
 
-import type { GateProgress, GameState, Transaction, Annotation, Block } from '@/types'
-
-const STORAGE_KEYS = {
-  PROGRESS: 'solana-forge:progress',
-  PREFERENCES: 'solana-forge:preferences',
-  GAME: 'solana-forge:game'
-} as const
+import type { Transaction, Annotation, Block } from '@/types'
 
 const DB_NAME = 'solana-forge'
 const DB_VERSION = 1
@@ -64,14 +58,6 @@ async function addToStore<T>(storeName: string, item: T): Promise<void> {
 // === Storage Service ===
 
 export interface StorageService {
-  // Progress
-  getProgress(): Promise<GateProgress>
-  saveProgress(progress: GateProgress): Promise<void>
-  
-  // Game State
-  getGameState(): Promise<GameState>
-  saveGameState(state: GameState): Promise<void>
-  
   // Transaction History
   getTransactions(): Promise<Transaction[]>
   addTransaction(tx: Transaction): Promise<void>
@@ -87,58 +73,6 @@ export interface StorageService {
 
 export function createStorageService(): StorageService {
   return {
-    // === Progress ===
-    
-    async getProgress(): Promise<GateProgress> {
-      try {
-        const data = localStorage.getItem(STORAGE_KEYS.PROGRESS)
-        if (data) {
-          return JSON.parse(data)
-        }
-      } catch (e) {
-        console.warn('Failed to load progress from localStorage:', e)
-      }
-      
-      // Default progress
-      return {
-        currentGate: 1,
-        completedGates: [],
-        gateData: {}
-      }
-    },
-
-    async saveProgress(progress: GateProgress): Promise<void> {
-      localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(progress))
-    },
-
-    // === Game State ===
-
-    async getGameState(): Promise<GameState> {
-      try {
-        const data = localStorage.getItem(STORAGE_KEYS.GAME)
-        if (data) {
-          return JSON.parse(data)
-        }
-      } catch (e) {
-        console.warn('Failed to load game state from localStorage:', e)
-      }
-      
-      // Default game state
-      return {
-        factory: { efficiency: 100, workers: 1, machines: [] },
-        conveyor: { items: [], tickRate: 1, position: 0 },
-        qcStation: { inspectedCount: 0, passCount: 0, failCount: 0 },
-        shipments: [],
-        defectiveBatches: []
-      }
-    },
-
-    async saveGameState(state: GameState): Promise<void> {
-      localStorage.setItem(STORAGE_KEYS.GAME, JSON.stringify(state))
-    },
-
-    // === Transactions ===
-
     async getTransactions(): Promise<Transaction[]> {
       return getAllFromStore<Transaction>('transactions')
     },
@@ -147,8 +81,6 @@ export function createStorageService(): StorageService {
       await addToStore<Transaction>('transactions', tx)
     },
 
-    // === Annotations ===
-
     async getAnnotations(): Promise<Annotation[]> {
       return getAllFromStore<Annotation>('annotations')
     },
@@ -156,8 +88,6 @@ export function createStorageService(): StorageService {
     async addAnnotation(annotation: Annotation): Promise<void> {
       await addToStore<Annotation>('annotations', annotation)
     },
-
-    // === Blocks ===
 
     async getBlocks(): Promise<Block[]> {
       return getAllFromStore<Block>('blocks')
