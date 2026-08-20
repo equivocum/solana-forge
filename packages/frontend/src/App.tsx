@@ -51,9 +51,9 @@ function App() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* // STAGE: app_header */}
-      <header className="px-6 py-3 border-b border-gray-700 bg-gray-800/50 backdrop-blur">
+      <header className="px-6 py-3 border-b border-gray-700 bg-gray-800/50 backdrop-blur flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold">
@@ -148,8 +148,8 @@ function App() {
       </header>
 
       {/* // STAGE: app_main */}
-      <main className="p-4 h-[calc(100vh-57px)]">
-        <div className="max-w-[1400px] mx-auto h-full">
+      <main className="p-4 flex-1 flex flex-col min-h-0">
+        <div className="max-w-[1400px] mx-auto w-full flex-1 flex flex-col min-h-0">
           <ArchitectureView
             viewMode={viewMode}
             isSimulating={isSimulating}

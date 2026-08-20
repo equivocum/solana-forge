@@ -88,9 +88,9 @@ export function ArchitectureView({
 
   // // STAGE: architecture_render
   return (
-    <div className="h-full flex">
+    <div className="h-full flex min-h-0">
       {/* Main content area */}
-      <div className="flex-1 bg-gray-800/30 rounded-xl p-4 overflow-y-auto overflow-x-visible min-w-0">
+      <div className="flex-1 bg-gray-800/30 rounded-xl p-4 min-w-0">
         {viewMode === 'pipeline' ? (
           <PipelineFlowView
             activeComponent={activeComponent}
