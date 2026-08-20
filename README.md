@@ -100,7 +100,6 @@ The data consistency test verifies that `TX_LIFECYCLE_PATH`, `SIMULATION_STEPS`,
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, TypeScript 5.9, Vite 6.4, Tailwind CSS 4.3 |
-| Crypto | @noble/ed25519 v3 |
 | Testing | Vitest 3.2, @testing-library/react |
 | Storage | IndexedDB + localStorage |
 
