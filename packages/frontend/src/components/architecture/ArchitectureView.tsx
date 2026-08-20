@@ -35,6 +35,7 @@ export function ArchitectureView({
   const [activeComponent, setActiveComponent] = useState<string | null>(null)
   const [hoveredComponent, setHoveredComponent] = useState<ArchitectureComponent | null>(null)
   const [zoomedComponent, setZoomedComponent] = useState<ArchitectureComponent | null>(null)
+  const [zoomedSubId, setZoomedSubId] = useState<string | null>(null)
 
   const { addAnnotation } = useAnnotations()
 
@@ -51,6 +52,7 @@ export function ArchitectureView({
 
   const handleZoomClose = useCallback(() => {
     setZoomedComponent(null)
+    setZoomedSubId(null)
     setActiveComponent(null)
   }, [])
 
@@ -58,6 +60,7 @@ export function ArchitectureView({
     const sub = parent.subComponents.find(s => s.id === subId)
     if (sub) {
       setZoomedComponent(parent)
+      setZoomedSubId(subId)
       setActiveComponent(parent.id)
       addAnnotation('STAGE', `Exploring sub-component: ${sub.name} — ${sub.detail.purpose}`, subId, 1)
     }
@@ -130,6 +133,7 @@ export function ArchitectureView({
       {zoomedComponent && (
         <ZoomPanel
           component={zoomedComponent}
+          initialSubId={zoomedSubId}
           onClose={handleZoomClose}
         />
       )}

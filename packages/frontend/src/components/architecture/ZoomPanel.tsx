@@ -7,12 +7,17 @@ import type { ArchitectureComponent, SubComponent } from './data/components'
 // // STAGE: zoom_panel
 interface ZoomPanelProps {
   component: ArchitectureComponent
+  initialSubId?: string | null
   onClose: () => void
-  onSubComponentClick?: (sub: SubComponent) => void
 }
 
-export function ZoomPanel({ component, onClose, onSubComponentClick }: ZoomPanelProps) {
-  const [selectedSub, setSelectedSub] = useState<SubComponent | null>(null)
+export function ZoomPanel({ component, initialSubId, onClose }: ZoomPanelProps) {
+  const [selectedSub, setSelectedSub] = useState<SubComponent | null>(() => {
+    if (initialSubId) {
+      return component.subComponents.find(s => s.id === initialSubId) || null
+    }
+    return null
+  })
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
@@ -93,10 +98,7 @@ export function ZoomPanel({ component, onClose, onSubComponentClick }: ZoomPanel
                     {component.subComponents.map((sub) => (
                       <button
                         key={sub.id}
-                        onClick={() => {
-                          setSelectedSub(sub)
-                          onSubComponentClick?.(sub)
-                        }}
+                        onClick={() => setSelectedSub(sub)}
                         className="bg-gray-800 hover:bg-gray-700 rounded-lg p-4 text-left transition-colors"
                       >
                         <div className="flex items-center gap-2 mb-2">
