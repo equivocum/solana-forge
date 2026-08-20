@@ -84,37 +84,8 @@ export function SimulationSidebar({
 
   return (
     <div className="h-full flex flex-col bg-gray-900/95 border border-gray-700 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-700">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-bold text-blue-400">
-            Step {currentStep + 1}/{totalSteps}
-          </span>
-          <span className="text-xs text-gray-500">•</span>
-          <span className="text-xs text-gray-400 truncate">{activeAnnotation.title}</span>
-        </div>
-        <p className="text-sm text-gray-300">{activeAnnotation.description}</p>
-      </div>
-
-      {/* Scrollable annotations */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {activeAnnotation.annotation.map((ann, i) => (
-          <AnnotationBadge key={i} annotation={ann} index={i} />
-        ))}
-      </div>
-
-      {/* Progress bar */}
-      <div className="flex-shrink-0 px-4 pb-2">
-        <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 rounded-full transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-          />
-        </div>
-      </div>
-
       {/* Navigation controls */}
-      <div className="flex-shrink-0 p-4 border-t border-gray-700">
+      <div className="flex-shrink-0 p-4 border-b border-gray-700">
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
@@ -149,6 +120,36 @@ export function SimulationSidebar({
           </button>
         </div>
       </div>
+
+      {/* Header */}
+      <div className="flex-shrink-0 p-4 border-b border-gray-700">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-bold text-blue-400">
+            Step {currentStep + 1}/{totalSteps}
+          </span>
+          <span className="text-xs text-gray-500">•</span>
+          <span className="text-xs text-gray-400 truncate">{activeAnnotation.title}</span>
+        </div>
+        <p className="text-sm text-gray-300">{activeAnnotation.description}</p>
+      </div>
+
+      {/* Scrollable annotations */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        {activeAnnotation.annotation.map((ann, i) => (
+          <AnnotationBadge key={i} annotation={ann} index={i} />
+        ))}
+      </div>
+
+      {/* Progress bar */}
+      <div className="flex-shrink-0 px-4 pb-2">
+        <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all duration-300"
+            style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
+          />
+        </div>
+      </div>
+
     </div>
   )
 }
