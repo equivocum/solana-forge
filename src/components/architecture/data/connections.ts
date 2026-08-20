@@ -84,4 +84,5 @@ export const TX_LIFECYCLE_PATH = [
   'replay-stage',
   'accounts-db',
   'tower-bft',
+  'accounts-db',
 ]
