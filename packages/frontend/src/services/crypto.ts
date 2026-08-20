@@ -21,7 +21,8 @@ export function createEd25519Service(annotationService?: AnnotationService, gate
       // // STAGE: keypair_generation
       annotationService?.addAnnotation('STAGE', 'Generating Ed25519 keypair', 'crypto.ts:12', gateId)
 
-      const privateKey = ed25519.utils.randomPrivateKey()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const privateKey = (ed25519.utils as any).randomSecretKey()
       const publicKey = await ed25519.getPublicKeyAsync(privateKey)
 
       // // WHY: ed25519 signing proves ownership without revealing private key
