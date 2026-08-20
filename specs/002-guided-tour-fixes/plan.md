@@ -59,24 +59,27 @@ packages/frontend/src/
 
 ## Layout Design
 
-### Page max-width
+### Page layout (flexbox dynamic height)
 ```tsx
 // App.tsx
-<main className="p-4 h-[calc(100vh-57px)]">
-  <div className="max-w-[1400px] mx-auto h-full">
-    <ArchitectureView ... />
-  </div>
-</main>
+<div className="min-h-screen bg-gray-900 text-white flex flex-col">
+  <header className="... flex-shrink-0">...</header>
+  <main className="p-4 flex-1 flex flex-col min-h-0">
+    <div className="max-w-[1400px] mx-auto w-full flex-1 flex flex-col min-h-0">
+      <ArchitectureView ... />
+    </div>
+  </main>
+</div>
 ```
 
 ### Sidebar layout
 ```tsx
 // ArchitectureView.tsx
-<div className="h-full flex">
-  <div className="flex-1 bg-gray-800/30 rounded-xl p-4 overflow-visible min-w-0">
+<div className="h-full flex min-h-0">
+  <div className="flex-1 bg-gray-800/30 rounded-xl p-4 min-w-0">
     {/* Pipeline or Layered view */}
   </div>
-  {isSimulating && (
+  {tourActive && (
     <div className="w-80 ml-4 flex-shrink-0">
       <SimulationSidebar ... />
     </div>
