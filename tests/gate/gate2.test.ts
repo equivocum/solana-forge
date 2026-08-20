@@ -2,8 +2,8 @@
 // // STAGE: gate2_test
 
 import { describe, it, expect } from 'vitest'
-import { createRpcService } from '../../packages/frontend/src/services/rpc'
-import type { Transaction } from '../../packages/shared/types'
+import { createRpcService } from '../../src/services/rpc'
+import type { Transaction } from '../../src/types'
 
 describe('Gate 2: RPC Submit', () => {
   const rpcService = createRpcService()

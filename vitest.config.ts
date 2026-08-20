@@ -1,16 +1,17 @@
 import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  plugins: [react()],
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['tests/**/*.test.ts', 'packages/frontend/src/**/*.test.ts']
+    include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}']
   },
   resolve: {
     alias: {
-      '@shared': path.resolve(__dirname, 'packages/shared'),
-      '@': path.resolve(__dirname, 'packages/frontend/src')
+      '@': path.resolve(__dirname, './src'),
     }
   }
 })
