@@ -167,7 +167,7 @@ export function PipelineFlowView({
               onClick={onComponentClick}
               onHover={onComponentHover}
               onSubClick={onSubClick}
-              size="lg"
+              size="md"
             />
           ))}
         </div>
