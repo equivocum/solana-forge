@@ -30,6 +30,19 @@ pnpm dev
 
 The app opens at `http://localhost:5173`.
 
+### Docker
+
+```bash
+# Build and run with Docker Compose
+docker compose up --build
+
+# Or build and run manually
+docker build -t solana-forge .
+docker run -p 3000:80 solana-forge
+```
+
+The app is served at `http://localhost:3000`.
+
 ## Project Structure
 
 ```
