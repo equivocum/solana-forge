@@ -28,7 +28,7 @@ pnpm install
 pnpm dev
 ```
 
-The app opens at `http://localhost:5173`.
+The app opens at `http://localhost:3000`.
 
 ### Docker
 
