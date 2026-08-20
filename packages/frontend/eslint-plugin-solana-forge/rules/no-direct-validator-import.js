@@ -24,7 +24,7 @@ module.exports = {
 
   create(context) {
     const forbiddenPatterns = [
-      /^@solana-learn\/native/,
+      /^@solana-forge\/native/,
       /packages\/native\//,
       /\.node$/ // Native module files
     ]

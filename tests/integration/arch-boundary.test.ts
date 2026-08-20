@@ -7,10 +7,10 @@
 
 import { describe, it, expect } from 'vitest'
 import { RuleTester } from 'eslint'
-import rule from '../../packages/frontend/eslint-plugin-solana-learn/rules/no-direct-validator-import'
+import rule from '../../packages/frontend/eslint-plugin-solana-forge/rules/no-direct-validator-import'
 
 const ruleTester = new RuleTester({
-  parserOptions: {
+  languageOptions: {
     ecmaVersion: 2020,
     sourceType: 'module'
   }
@@ -38,7 +38,7 @@ describe('Architectural Boundary: No Direct Validator Import', () => {
     invalid: [
       // Direct import from native package
       {
-        code: `import { SimulationNative } from '@solana-learn/native'`,
+        code: `import { SimulationNative } from '@solana-forge/native'`,
         errors: [{ messageId: 'noDirectValidatorImport' }]
       },
       // Direct import from native path
@@ -48,7 +48,7 @@ describe('Architectural Boundary: No Direct Validator Import', () => {
       },
       // Dynamic import of native module
       {
-        code: `const native = import('@solana-learn/native')`,
+        code: `const native = import('@solana-forge/native')`,
         errors: [{ messageId: 'noDirectValidatorImport' }]
       },
       // Import of .node file

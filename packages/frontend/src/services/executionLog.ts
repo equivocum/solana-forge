@@ -3,7 +3,7 @@
 
 import type { Annotation } from '@shared/types'
 
-const DB_NAME = 'solana-learn-logs'
+const DB_NAME = 'solana-forge-logs'
 const DB_VERSION = 1
 const STORE_NAME = 'execution-logs'
 

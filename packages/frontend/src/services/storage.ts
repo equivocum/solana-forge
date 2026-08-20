@@ -4,12 +4,12 @@
 import type { GateProgress, GameState, Transaction, Annotation, Block } from '@shared/types'
 
 const STORAGE_KEYS = {
-  PROGRESS: 'solana-learn:progress',
-  PREFERENCES: 'solana-learn:preferences',
-  GAME: 'solana-learn:game'
+  PROGRESS: 'solana-forge:progress',
+  PREFERENCES: 'solana-forge:preferences',
+  GAME: 'solana-forge:game'
 } as const
 
-const DB_NAME = 'solana-learn'
+const DB_NAME = 'solana-forge'
 const DB_VERSION = 1
 
 // === IndexedDB Helper ===

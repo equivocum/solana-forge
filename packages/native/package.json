@@ -1,5 +1,5 @@
 {
-  "name": "@solana-learn/native",
+  "name": "@solana-forge/native",
   "version": "0.1.0",
   "private": true,
   "main": "index.node",
@@ -10,7 +10,7 @@
     "test": "cargo test"
   },
   "napi": {
-    "name": "solana-learn-native",
+    "name": "solana-forge-native",
     "triples": {
       "defaults": true
     }

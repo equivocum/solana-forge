@@ -1,5 +1,5 @@
 {
-  "name": "@solana-learn/frontend",
+  "name": "@solana-forge/frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",

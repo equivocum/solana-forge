@@ -1,8 +1,8 @@
 {
-  "name": "solana-learn",
+  "name": "solana-forge",
   "version": "0.1.0",
   "private": true,
-  "description": "Interactive web-based learning tool for Solana blockchain internals",
+  "description": "Learn Solana blockchain internals through an interactive manufacturing game",
   "workspaces": [
     "packages/*"
   ],

@@ -1,5 +1,5 @@
 [package]
-name = "solana-learn-native"
+name = "solana-forge-native"
 version = "0.1.0"
 edition = "2021"
 
