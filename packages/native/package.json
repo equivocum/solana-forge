@@ -1,0 +1,21 @@
+{
+  "name": "@solana-learn/native",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.node",
+  "types": "index.d.ts",
+  "scripts": {
+    "build:native": "napi build --release",
+    "build:debug": "napi build",
+    "test": "cargo test"
+  },
+  "napi": {
+    "name": "solana-learn-native",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0"
+  }
+}
