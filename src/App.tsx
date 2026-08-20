@@ -92,29 +92,12 @@ function App() {
                   ▶ Guided Tour
                 </button>
               ) : (
-                <>
-                  {!isSimulating ? (
-                    <button
-                      onClick={handleSimResume}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-md text-xs font-medium text-white"
-                    >
-                      ▶ Resume
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleSimPause}
-                      className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded-md text-xs font-medium text-white"
-                    >
-                      ⏸ Pause
-                    </button>
-                  )}
-                  <button
-                    onClick={handleSimReset}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md text-xs font-medium text-white"
-                  >
-                    ↺ Reset
-                  </button>
-                </>
+                <button
+                  onClick={handleSimReset}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded-md text-xs font-medium text-white"
+                >
+                  ↺ Reset
+                </button>
               )}
 
               {/* Speed control */}
