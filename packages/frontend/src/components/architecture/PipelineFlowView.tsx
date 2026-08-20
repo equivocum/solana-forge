@@ -28,9 +28,9 @@ export function PipelineFlowView({
   txPosition,
 }: PipelineFlowViewProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* TPU Pipeline */}
-      <div className="bg-gray-800/50 rounded-xl p-4 border border-blue-900/30">
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-blue-900/30 overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-blue-500 rounded-full" />
           <span className="text-sm font-bold text-blue-400 uppercase tracking-wide">TPU Pipeline</span>
@@ -116,7 +116,7 @@ export function PipelineFlowView({
       </div>
 
       {/* TVU Pipeline */}
-      <div className="bg-gray-800/50 rounded-xl p-4 border border-purple-900/30">
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-purple-900/30 overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-purple-500 rounded-full" />
           <span className="text-sm font-bold text-purple-400 uppercase tracking-wide">TVU Pipeline</span>
@@ -150,7 +150,7 @@ export function PipelineFlowView({
       </div>
 
       {/* Core Programs */}
-      <div className="bg-gray-800/50 rounded-xl p-4 border border-pink-900/30">
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-pink-900/30 overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-pink-500 rounded-full" />
           <span className="text-sm font-bold text-pink-400 uppercase tracking-wide">Core Programs</span>
