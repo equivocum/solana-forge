@@ -21,7 +21,7 @@ function App() {
     setIsSimulating(true)
     setTourActive(true)
     setSimStep(0)
-    addAnnotation('STAGE', 'Guided Tour started — watching transaction flow through Solana validator', 'simulation', 1)
+    addAnnotation('STAGE', 'Guided Tour started — watching transaction flow through Solana validator', 'simulation')
   }, [addAnnotation])
 
   const handleSimPause = useCallback(() => {

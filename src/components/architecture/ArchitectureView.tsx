@@ -53,7 +53,7 @@ export function ArchitectureView({
   const handleComponentClick = useCallback((comp: ArchitectureComponent) => {
     setZoomedComponent(comp)
     setActiveComponent(comp.id)
-    addAnnotation('STAGE', `Exploring: ${comp.name} — ${comp.detail.purpose}`, comp.id, 1)
+    addAnnotation('STAGE', `Exploring: ${comp.name} — ${comp.detail.purpose}`, comp.id)
   }, [addAnnotation])
 
   const handleComponentHover = useCallback((comp: ArchitectureComponent | null) => {
@@ -72,7 +72,7 @@ export function ArchitectureView({
       setZoomedComponent(parent)
       setZoomedSubId(subId)
       setActiveComponent(parent.id)
-      addAnnotation('STAGE', `Exploring sub-component: ${sub.name} — ${sub.detail.purpose}`, subId, 1)
+      addAnnotation('STAGE', `Exploring sub-component: ${sub.name} — ${sub.detail.purpose}`, subId)
     }
   }, [addAnnotation])
 

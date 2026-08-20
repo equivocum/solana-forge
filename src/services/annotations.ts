@@ -7,21 +7,13 @@ export interface AnnotationService {
   createAnnotation(
     type: AnnotationType,
     content: string,
-    sourceRef: string,
-    gateId: number
+    sourceRef: string
   ): Annotation
-  
-  addAnnotation(
-    type: AnnotationType,
-    content: string,
-    sourceRef: string,
-    gateId: number
-  ): Annotation
-  
+
   formatAnnotation(annotation: Annotation): string
-  
+
   getColorForType(type: AnnotationType): string
-  
+
   getIconForType(type: AnnotationType): string
 }
 
@@ -48,26 +40,15 @@ export function createAnnotationService(): AnnotationService {
     createAnnotation(
       type: AnnotationType,
       content: string,
-      sourceRef: string,
-      gateId: number
+      sourceRef: string
     ): Annotation {
       return {
         id: crypto.randomUUID(),
         type,
         content,
         sourceRef,
-        timestamp: new Date(),
-        gateId
+        timestamp: new Date()
       }
-    },
-
-    addAnnotation(
-      type: AnnotationType,
-      content: string,
-      sourceRef: string,
-      gateId: number
-    ): Annotation {
-      return this.createAnnotation(type, content, sourceRef, gateId)
     },
 
     formatAnnotation(annotation: Annotation): string {

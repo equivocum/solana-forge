@@ -8,9 +8,8 @@ import { createExecutionLogService } from '../services/executionLog'
 
 interface UseAnnotationsReturn {
   annotations: Annotation[]
-  addAnnotation: (type: AnnotationType, content: string, sourceRef: string, gateId: number) => Annotation
+  addAnnotation: (type: AnnotationType, content: string, sourceRef: string) => Annotation
   clearAnnotations: () => void
-  getAnnotationsByGate: (gateId: number) => Annotation[]
   getAnnotationsByType: (type: AnnotationType) => Annotation[]
   formatAnnotation: (annotation: Annotation) => string
   getColorForType: (type: AnnotationType) => string
@@ -22,11 +21,10 @@ export function useAnnotations(): UseAnnotationsReturn {
   const executionLog = createExecutionLogService()
 
   const addAnnotation = useCallback(
-    (type: AnnotationType, content: string, sourceRef: string, gateId: number): Annotation => {
-      const annotation = service.createAnnotation(type, content, sourceRef, gateId)
+    (type: AnnotationType, content: string, sourceRef: string): Annotation => {
+      const annotation = service.createAnnotation(type, content, sourceRef)
       setAnnotations(prev => [...prev, annotation])
-      // Write to execution log asynchronously (fire-and-forget)
-      executionLog.logAnnotation(gateId, annotation).catch(() => {})
+      executionLog.logAnnotation(annotation).catch(() => {})
       return annotation
     },
     [service, executionLog]
@@ -35,13 +33,6 @@ export function useAnnotations(): UseAnnotationsReturn {
   const clearAnnotations = useCallback(() => {
     setAnnotations([])
   }, [])
-
-  const getAnnotationsByGate = useCallback(
-    (gateId: number): Annotation[] => {
-      return annotations.filter(a => a.gateId === gateId)
-    },
-    [annotations]
-  )
 
   const getAnnotationsByType = useCallback(
     (type: AnnotationType): Annotation[] => {
@@ -68,7 +59,6 @@ export function useAnnotations(): UseAnnotationsReturn {
     annotations,
     addAnnotation,
     clearAnnotations,
-    getAnnotationsByGate,
     getAnnotationsByType,
     formatAnnotation,
     getColorForType
