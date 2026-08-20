@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Learn Solana blockchain internals through an interactive manufacturing game",
+  "description": "Interactive Solana validator architecture visualization",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,11 +11,6 @@
     "lint": "eslint . --ext ts,tsx",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:gate1": "vitest run tests/gate/gate1.test.ts",
-    "test:gate2": "vitest run tests/gate/gate2.test.ts",
-    "test:gate3": "vitest run tests/gate/gate3.test.tsx",
-    "test:gate4": "vitest run tests/gate/gate4.test.tsx",
-    "test:gate5": "vitest run tests/gate/gate5.test.tsx",
     "format": "prettier --write ."
   },
   "dependencies": {

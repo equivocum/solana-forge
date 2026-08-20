@@ -72,13 +72,11 @@ export function SimulationSidebar({
     }
   }, [isRunning, currentStep, speed, slowMotion, onStepChange, onPause])
 
-  // Set initial annotation when not yet running
+  // Sync annotation with currentStep
   useEffect(() => {
-    if (!activeAnnotation) {
-      const step = SIMULATION_STEPS[currentStep]
-      if (step) setActiveAnnotation(step)
-    }
-  }, [currentStep, activeAnnotation])
+    const step = SIMULATION_STEPS[currentStep]
+    if (step) setActiveAnnotation(step)
+  }, [currentStep])
 
   if (!activeAnnotation) return null
 
