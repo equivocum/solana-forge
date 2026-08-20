@@ -1372,18 +1372,18 @@ export const SNAPSHOT: ArchitectureComponent = {
 // ═══════════════════════════════════════════════════════════════════
 
 export const NATIVE_PROGRAMS: ArchitectureComponent = {
-  id: 'native-programs',
-  name: 'Native Programs',
+  id: 'core-programs',
+  name: 'Core Programs',
   icon: '📦',
   category: 'programs',
   layer: 'programs',
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'Built-in programs that provide core blockchain functionality.',
+    purpose: 'Core programs compiled into the validator binary that provide essential blockchain functionality.',
     role: 'System, Vote, Stake, Compute Budget, ALT, BPF Loaders, ZK ElGamal, Precompiles.',
     howItWorks: {
-      title: 'Native Programs',
+      title: 'Core Programs',
       steps: [
         'System Program: create accounts, transfer lamports, assign programs',
         'Vote Program: process validator vote transactions, manage tower lockouts',

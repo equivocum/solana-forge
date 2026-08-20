@@ -9,9 +9,10 @@ import { TPU_PIPELINE, TVU_PIPELINE, SHARED_COMPONENTS } from './data/components
 interface PipelineFlowViewProps {
   activeComponent: string | null
   highlightedComponent: string | null
-  currentStepId: string | null  // Current step in simulation
+  currentStepId: string | null
   onComponentClick: (component: ArchitectureComponent) => void
   onComponentHover: (component: ArchitectureComponent | null) => void
+  onSubClick: (parent: ArchitectureComponent, subId: string) => void
   txPath: string[]
   txPosition: number
 }
@@ -22,13 +23,13 @@ export function PipelineFlowView({
   currentStepId,
   onComponentClick,
   onComponentHover,
+  onSubClick,
   txPath,
   txPosition,
 }: PipelineFlowViewProps) {
   return (
     <div className="space-y-6">
-      {/* // STAGE: tpu_pipeline */}
-      {/* TPU Pipeline (Leader Mode) */}
+      {/* TPU Pipeline */}
       <div className="bg-gray-800/50 rounded-xl p-4 border border-blue-900/30">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-blue-500 rounded-full" />
@@ -50,13 +51,11 @@ export function PipelineFlowView({
                   isCurrentStep={isCurrentStepComp}
                   onClick={onComponentClick}
                   onHover={onComponentHover}
+                  onSubClick={onSubClick}
                   size="md"
                 />
                 {i < TPU_PIPELINE.length - 1 && (
-                  <FlowArrow
-                    isActive={isCurrentStepComp}
-                    isVisited={isVisited}
-                  />
+                  <FlowArrow isActive={isCurrentStepComp} isVisited={isVisited} />
                 )}
               </div>
             )
@@ -64,7 +63,6 @@ export function PipelineFlowView({
         </div>
       </div>
 
-      {/* // STAGE: shared_layers */}
       {/* Shared Layers */}
       <div className="grid grid-cols-4 gap-3">
         <SharedLayer
@@ -73,9 +71,11 @@ export function PipelineFlowView({
           color="cyan"
           components={SHARED_COMPONENTS.filter(c => c.layer === 'networking')}
           activeComponent={activeComponent}
+          highlightedComponent={highlightedComponent}
           currentStepId={currentStepId}
           onComponentClick={onComponentClick}
           onComponentHover={onComponentHover}
+          onSubClick={onSubClick}
         />
         <SharedLayer
           title="Runtime"
@@ -83,9 +83,11 @@ export function PipelineFlowView({
           color="yellow"
           components={SHARED_COMPONENTS.filter(c => c.layer === 'runtime')}
           activeComponent={activeComponent}
+          highlightedComponent={highlightedComponent}
           currentStepId={currentStepId}
           onComponentClick={onComponentClick}
           onComponentHover={onComponentHover}
+          onSubClick={onSubClick}
         />
         <SharedLayer
           title="Consensus"
@@ -93,9 +95,11 @@ export function PipelineFlowView({
           color="green"
           components={SHARED_COMPONENTS.filter(c => c.layer === 'consensus')}
           activeComponent={activeComponent}
+          highlightedComponent={highlightedComponent}
           currentStepId={currentStepId}
           onComponentClick={onComponentClick}
           onComponentHover={onComponentHover}
+          onSubClick={onSubClick}
         />
         <SharedLayer
           title="Storage"
@@ -103,14 +107,15 @@ export function PipelineFlowView({
           color="orange"
           components={SHARED_COMPONENTS.filter(c => c.layer === 'storage')}
           activeComponent={activeComponent}
+          highlightedComponent={highlightedComponent}
           currentStepId={currentStepId}
           onComponentClick={onComponentClick}
           onComponentHover={onComponentHover}
+          onSubClick={onSubClick}
         />
       </div>
 
-      {/* // STAGE: tvu_pipeline */}
-      {/* TVU Pipeline (Validator Mode) */}
+      {/* TVU Pipeline */}
       <div className="bg-gray-800/50 rounded-xl p-4 border border-purple-900/30">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-purple-500 rounded-full" />
@@ -132,13 +137,11 @@ export function PipelineFlowView({
                   isCurrentStep={isCurrentStepComp}
                   onClick={onComponentClick}
                   onHover={onComponentHover}
+                  onSubClick={onSubClick}
                   size="md"
                 />
                 {i < TVU_PIPELINE.length - 1 && (
-                  <FlowArrow
-                    isActive={isCurrentStepComp}
-                    isVisited={isVisited}
-                  />
+                  <FlowArrow isActive={isCurrentStepComp} isVisited={isVisited} />
                 )}
               </div>
             )
@@ -146,13 +149,12 @@ export function PipelineFlowView({
         </div>
       </div>
 
-      {/* // STAGE: programs_layer */}
-      {/* Native Programs */}
+      {/* Core Programs */}
       <div className="bg-gray-800/50 rounded-xl p-4 border border-pink-900/30">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-3 h-3 bg-pink-500 rounded-full" />
-          <span className="text-sm font-bold text-pink-400 uppercase tracking-wide">Native Programs</span>
-          <span className="text-xs text-gray-500">(Built-in programs)</span>
+          <span className="text-sm font-bold text-pink-400 uppercase tracking-wide">Core Programs</span>
+          <span className="text-xs text-gray-500">(Compiled into validator binary)</span>
         </div>
         <div className="flex items-center gap-3">
           {SHARED_COMPONENTS.filter(c => c.layer === 'programs').map((comp) => (
@@ -164,6 +166,7 @@ export function PipelineFlowView({
               isCurrentStep={currentStepId === comp.id}
               onClick={onComponentClick}
               onHover={onComponentHover}
+              onSubClick={onSubClick}
               size="lg"
             />
           ))}
@@ -195,18 +198,22 @@ function SharedLayer({
   color,
   components,
   activeComponent,
+  highlightedComponent,
   currentStepId,
   onComponentClick,
   onComponentHover,
+  onSubClick,
 }: {
   title: string
   icon: string
   color: string
   components: ArchitectureComponent[]
   activeComponent: string | null
+  highlightedComponent: string | null
   currentStepId: string | null
   onComponentClick: (component: ArchitectureComponent) => void
   onComponentHover: (component: ArchitectureComponent | null) => void
+  onSubClick: (parent: ArchitectureComponent, subId: string) => void
 }) {
   const borderColors: Record<string, string> = {
     cyan: 'border-cyan-900/30',
@@ -227,10 +234,11 @@ function SharedLayer({
             key={comp.id}
             component={comp}
             isActive={activeComponent === comp.id}
-            isHighlighted={activeComponent === comp.id}
+            isHighlighted={highlightedComponent === comp.id}
             isCurrentStep={currentStepId === comp.id}
             onClick={onComponentClick}
             onHover={onComponentHover}
+            onSubClick={onSubClick}
             size="sm"
           />
         ))}

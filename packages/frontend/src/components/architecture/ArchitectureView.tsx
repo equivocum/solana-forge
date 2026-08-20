@@ -5,7 +5,6 @@ import { useState, useCallback } from 'react'
 import { PipelineFlowView } from './PipelineFlowView'
 import { LayeredView } from './LayeredView'
 import { ZoomPanel } from './ZoomPanel'
-import { SolarSystem } from './SolarSystem'
 import { TransactionBubble } from './TransactionBubble'
 import { SimulationOverlay } from './SimulationOverlay'
 import { ALL_COMPONENTS, TX_LIFECYCLE_PATH } from './data'
@@ -36,7 +35,6 @@ export function ArchitectureView({
   const [activeComponent, setActiveComponent] = useState<string | null>(null)
   const [hoveredComponent, setHoveredComponent] = useState<ArchitectureComponent | null>(null)
   const [zoomedComponent, setZoomedComponent] = useState<ArchitectureComponent | null>(null)
-  const [solarSystemComponent, setSolarSystemComponent] = useState<ArchitectureComponent | null>(null)
 
   const { addAnnotation } = useAnnotations()
 
@@ -49,11 +47,6 @@ export function ArchitectureView({
 
   const handleComponentHover = useCallback((comp: ArchitectureComponent | null) => {
     setHoveredComponent(comp)
-    if (comp && comp.subComponents.length > 0) {
-      setSolarSystemComponent(comp)
-    } else {
-      setSolarSystemComponent(null)
-    }
   }, [])
 
   const handleZoomClose = useCallback(() => {
@@ -61,16 +54,14 @@ export function ArchitectureView({
     setActiveComponent(null)
   }, [])
 
-  const handleSolarSubClick = useCallback((subId: string) => {
-    if (solarSystemComponent) {
-      const sub = solarSystemComponent.subComponents.find(s => s.id === subId)
-      if (sub) {
-        setZoomedComponent(solarSystemComponent)
-        addAnnotation('STAGE', `Exploring sub-component: ${sub.name} — ${sub.detail.purpose}`, subId, 1)
-      }
+  const handleSubClick = useCallback((parent: ArchitectureComponent, subId: string) => {
+    const sub = parent.subComponents.find(s => s.id === subId)
+    if (sub) {
+      setZoomedComponent(parent)
+      setActiveComponent(parent.id)
+      addAnnotation('STAGE', `Exploring sub-component: ${sub.name} — ${sub.detail.purpose}`, subId, 1)
     }
-    setSolarSystemComponent(null)
-  }, [solarSystemComponent, addAnnotation])
+  }, [addAnnotation])
 
   // Sync simStep with activeComponent for highlighting
   const handleSimStepChangeWrapper = useCallback((step: number) => {
@@ -86,7 +77,7 @@ export function ArchitectureView({
   return (
     <div className="h-full flex flex-col">
       {/* Main content area */}
-      <div className="flex-1 bg-gray-800/30 rounded-xl p-4">
+      <div className="flex-1 bg-gray-800/30 rounded-xl p-4 overflow-visible">
         {viewMode === 'pipeline' ? (
           <PipelineFlowView
             activeComponent={activeComponent}
@@ -94,6 +85,7 @@ export function ArchitectureView({
             currentStepId={TX_LIFECYCLE_PATH[simStep] || null}
             onComponentClick={handleComponentClick}
             onComponentHover={handleComponentHover}
+            onSubClick={handleSubClick}
             txPath={TX_LIFECYCLE_PATH}
             txPosition={simStep}
           />
@@ -104,6 +96,7 @@ export function ArchitectureView({
             currentStepId={TX_LIFECYCLE_PATH[simStep] || null}
             onComponentClick={handleComponentClick}
             onComponentHover={handleComponentHover}
+            onSubClick={handleSubClick}
           />
         )}
       </div>
@@ -130,15 +123,6 @@ export function ArchitectureView({
           onStart={() => {}}
           onPause={() => {}}
           onReset={() => {}}
-        />
-      )}
-
-      {/* Solar system (on hover) */}
-      {solarSystemComponent && !zoomedComponent && (
-        <SolarSystem
-          component={solarSystemComponent}
-          onSubClick={handleSolarSubClick}
-          onDismiss={() => setSolarSystemComponent(null)}
         />
       )}
 
