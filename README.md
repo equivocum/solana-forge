@@ -6,6 +6,8 @@ Interactive visualization of Solana validator internals. Trace a transaction fro
 
 The guided tour walks through the complete Solana validator architecture:
 
+<img width="1421" height="965" alt="Solana Validator Architecture" src="https://github.com/user-attachments/assets/f43eb11e-78c2-494a-9d11-7ea03ba4ae4e" />
+
 - **TPU Pipeline (Leader Path)**: QUIC Streamer → Fetch → SigVerify → Status Cache → Banking Stage → SVM → AccountsDB → PoH Recording → Broadcast
 - **TVU Pipeline (Validator Path)**: Turbine → Shred Fetch → Shred SigVerify → Window Service → Blockstore → Replay Stage → AccountsDB → Tower BFT
 - **Consensus**: Fork choice, voting, leader rotation, finalization
