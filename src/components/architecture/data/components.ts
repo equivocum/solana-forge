@@ -851,50 +851,51 @@ export const TURBINE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 4,
   detail: {
-    purpose: 'Propagates block data (shreds) from the leader to all validators efficiently.',
-    role: 'BitTorrent-inspired multi-layer tree propagation. 2-3 hops to reach all validators.',
+    purpose: 'Propagates block shreds from the leader to every validator through a small number of network hops.',
+    role: 'A BitTorrent-inspired, stake-weighted tree: each validator forwards to a fixed slice of downstream peers, so coverage grows exponentially with depth.',
     howItWorks: {
       title: 'Turbine Propagation',
       steps: [
-        'Leader breaks blocks into MTU-sized shreds (~1,228 bytes)',
-        'Reed-Solomon erasure coding: 32:32 FEC sets',
-        'Stake-weighted shuffle: higher-staked validators placed closer to leader',
-        'Per-shred tree: deterministic tree from seed (leader_id, slot, index)',
-        'Fan-out: each layer is 200x previous (DATA_PLANE_FANOUT = 200)',
-        '2-3 hops: leader → root → L1 → L2 reaches all validators',
-        'UDP transport for low latency (~100ms)',
+        'Leader hands broadcast-produced data and coding shreds to the tree',
+        'Data and coding shreds are interleaved so no subtree starves for either kind',
+        'For each shred, a deterministic tree is derived from (leader, slot, shred index) — everyone computes the same tree',
+        'Higher-staked validators sit closer to the root, keeping the critical path short',
+        'Each node retransmits to its downstream peers (DATA_PLANE_FANOUT = 200 per layer)',
+        'A handful of hops covers the whole cluster',
       ]
     },
-    whyItMatters: 'Turbine achieves O(√N) propagation instead of O(N). Critical for scaling to 1000+ validators.',
+    whyItMatters: 'Tree fan-out makes leader upload cost constant while reach grows exponentially — propagation that scales with the network instead of against it.',
     metrics: [
-      'DATA_PLANE_FANOUT: 200',
-      'Shred size: ~1,228 bytes',
-      'FEC: 32:32',
-      'Propagation: ~100ms',
-      'Tree depth: 2-3 hops',
+      'DATA_PLANE_FANOUT: 200 peers per layer',
+      'Deterministic per-shred trees — no negotiation',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L47',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tvu.rs#L86',
+  ],
   subComponents: [
     {
       id: 'stake-weighted-tree',
       name: 'Stake-Weighted Tree',
       icon: '🌳',
       detail: {
-        purpose: 'Constructs propagation tree with higher-staked validators closer to the leader.',
-        role: 'Ensures critical path (leader to supermajority) is as short as possible.',
+        purpose: 'Constructs the propagation tree with higher-staked validators closer to the leader.',
+        role: 'Stake-weighted, deterministically shuffled placement keeps the leader-to-supermajority path as short as possible.',
         howItWorks: {
           title: 'Tree Construction',
           steps: [
-            'Collect all validators and their stakes from Gossip',
-            'Shuffle validators using deterministic seed (slot, shred_index)',
-            'Place higher-staked validators in earlier layers',
-            'Each validator knows its position in the tree',
-            'Retransmit to 200 downstream peers in next layer',
+            'Collect validators and stakes from Gossip',
+            'Deterministically shuffle using the shred\'s seed (slot, index)',
+            'Sort so higher-staked validators land in earlier layers',
+            'Every validator computes its own position — no coordination needed',
+            'Retransmit downstream to your layer\'s peer slice',
           ]
         },
-        whyItMatters: 'Stake-weighted placement ensures 2/3 supermajority is reached in 2 hops, enabling fast confirmation.',
-        metrics: ['Fan-out: 200', 'Depth to supermajority: 2 hops']
-      }
+        whyItMatters: 'Weighted placement means the most-invested validators carry the hottest paths, and everyone can independently verify their position.',
+        metrics: ['Fan-out per layer: 200']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L47']
     }
   ]
 }
