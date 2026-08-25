@@ -67,8 +67,31 @@ Legend: ✅ anchor verified against tag content. ⏳ = finalize during the ownin
 
 ## Findings Ledger (seeded from research D-sections; dispositions added per FR-021 pairing)
 
-Columns: Component(s) · Prior claim · Classification (`incorrect` | `misleading-simplification` | `missing`) · Correction · Before-evidence · After-evidence · Disposition.
-*(Table inserted by T003.)*
+| ID | Component(s) | Prior claim | Classification | Correction | Before-evidence | After-evidence | Disposition |
+|----|--------------|-------------|----------------|------------|-----------------|----------------|-------------|
+| F-01 | sig-verify | GPU/CUDA signature offload accelerates verification | incorrect | Removed upstream; CPU-parallel ed25519 in 128-packet chunks | W-38 (PR #3817), W-37 | W-37, W-06 | pending |
+| F-02 | sig-verify | Duplicate suppression happens here | incorrect | Only packet-level Bloom dedup at ingress; semantic checks live in banking context | D-13 (Anza doc drift) | W-14, W-25 | pending |
+| F-03 | status-cache | Duplicate-signature & blockhash-freshness checked during signature verification | misleading-simplification | Checks occur inside banking consumption (`check_fee_payer_unlocked`, age checks) + RPC status reads | D-13 | W-14 | pending |
+| F-04 | svm-pipeline | Standalone pipeline stage between banking and storage | incorrect | Runtime is a library invoked by consume-workers (production) and replay (verification) | D-8 wiring | W-26, W-12 | pending |
+| F-05 | poh-recording | PoH labeled "VDF" | incorrect | Sequential SHA-256 hash chain serving as verifiable clock | D-5 correction note | W-16, W-17 | pending |
+| F-06 | poh-recording | Entries recorded after accounts-db commit | incorrect | Executed batches recorded immediately per batch via TransactionRecorder → record_channels | D-5 correction note | W-18, W-17 | pending |
+| F-07 | poh | Ticks coupled to transaction flow | misleading-simplification | Ticks run continuously/independently (tick producer thread; 64/slot default) | D-5 correction note | W-16, W-40 | pending |
+| F-08 | banking-stage | Old 6-thread/multi-iterator internals | misleading-simplification | Manager + GreedyScheduler thread + N ConsumeWorkers + dedicated VoteWorker; Consume/Forward/Hold decisions | D-4 alternatives | W-08–W-15 | pending |
+| F-09 | broadcast | Generic "send shreds" framing | missing | Merkle-signed shreds, chained roots, FEC 32:32, header anatomy | — | W-20–W-22 | pending |
+| F-10 | shred-sig-verify | Verifies individual shred signatures only | missing | Verifies leader's signature over the FEC-set Merkle root, pubkey from LeaderScheduleCache for slot | — | W-24, W-23 | pending |
+| F-11 | window-service | Linear fetch→store only | missing | Dedup filter, erasure recovery + retransmit of recovered shreds, duplicate-conflict detection | D-7 correction note | W-25, W-23 | pending |
+| F-12 | quic-streamer | Single generic QUIC endpoint | misleading-simplification | Three endpoints (TPU / TPU-forwards / TPU-vote) with stake-weighted vs simple QoS | D-3 alternatives | W-04, W-05 | pending |
+| F-13 | tower-bft | No lockout math; confirmation levels conflated | missing | INITIAL_LOCKOUT=2 ×2 doubling to 31-deep stack → root pop; confirmed(optimistic) vs finalized(rooted+⅔) | — | W-29, W-30, W-39 | pending |
+| F-14 | replay-stage | Linear execute framing | misleading-simplification | Parallel fork/tx rayon pools; fork-choice gating (lockouts, thresholds, propagation check, switch proof) before every vote | — | W-26–W-28 | pending |
+| F-15 | epoch-schedule | Edge `tower-bft→epoch-schedule` ("leader rotation" driven by voting) | incorrect | Schedule derived from epoch stakes (stake-weighted ChaCha, 4 consecutive slots, one epoch ahead); independent of consensus voting | removed edge C-3 | W-31–W-33 | pending |
+| F-16 | gulf-stream + forwarding | Two overlapping nodes; "validators execute ahead of their slot"; priority follows forwarder stake | misleading-simplification | Merged node `forwarding` "Forwarding (Gulf Stream)": push toward upcoming leaders + one-hop Forwarding Stage; blockhash-expiry bounds lifetime; banned claims per FR-014 | D-15 verdicts ❌ | W-07, W-19, W-32 | pending |
+| F-17 | rpc-api | (no client-facing submission node) | missing | NEW networking-layer node: sendTransaction → push toward upcoming leaders via QUIC | — | W-02, W-04 | pending |
+| F-18 | cluster-info-vote-listener | (absent) | missing | NEW consensus node: polls gossip votes, verifies, tracks thresholds, feeds verified votes toward tower/banking | — | W-34–W-36 | pending |
+| F-19 | voting-service | (absent) | missing | NEW consensus node: persists tower, publishes own votes outward | — | W-03, W-23(voting) | pending |
+| F-20 | accounts-db, bank | Execution writes durable state synchronously | misleading-simplification | Execution writes deltas to bank state; persistence asynchronous — freeze/root consolidation via background service | FR-008 rationale | W-01 (ABS spawn), ⏳ ABS internals anchor in T022 | pending |
+| F-21 | TX_LIFECYCLE_PATH | Ordering: dedup/blockhash in sig-verify; execution commits before ledger clock | incorrect | Corrected data-flow order per data-model transitions; tests updated same commit | FR-005..FR-007 | W-04–W-19 sequence | pending |
+
+*(Rows F-01…F-21 seeded by T003; dispositions land with their correcting commits.)*
 
 ## Disposition Rules
 - Each row reaches exactly one terminal state: `corrected-in-app` | `labeled-simplification` | `deferred:<rationale>` (SC-003).

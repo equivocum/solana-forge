@@ -36,7 +36,7 @@ Single project at repository root: `src/components/architecture/data/`, `tests/`
 **⚠️ CRITICAL**: No correction task may start until citation anchors are pinned and the findings ledger exists.
 
 - [x] T002 Pin exact line anchors against tag v4.2.1 for all core claims in specs/003-agave-accuracy-audit/research.md (D-2 through D-12): verify each permalink resolves and record final `#L<start>-L<end>` anchors into a working notes section of specs/003-agave-accuracy-audit/report.md
-- [ ] T003 Create findings ledger in specs/003-agave-accuracy-audit/report.md: methodology subsection + findings table with columns (component / prior claim / classification incorrect|misleading-simplification|missing / correction / before-evidence / after-evidence) seeded from research.md D-sections
+- [x] T003 Create findings ledger in specs/003-agave-accuracy-audit/report.md: methodology subsection + findings table with columns (component / prior claim / classification incorrect|misleading-simplification|missing / correction / before-evidence / after-evidence) seeded from research.md D-sections
 
 **Checkpoint**: Every claim has a verified anchor; every planned correction has a ledger row awaiting its disposition.
 
