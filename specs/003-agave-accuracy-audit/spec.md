@@ -1,6 +1,6 @@
 # Feature Specification: Agave Accuracy Audit
 
-**Feature Branch**: `003-agave-accuracy-audit`
+**Feature Branch**: `feature/8-agave-accuracy-audit` ([#8](https://github.com/equivocum/solana-forge/issues/8))
 
 **Created**: 2026-08-25
 
@@ -146,10 +146,11 @@ A future contributor wants to understand what was wrong, why it was wrong, what 
 
 **Process Constraints (user-mandated)**
 
-- **FR-020**: All work MUST occur on the feature branch created from `main`; direct commits to `main` are forbidden
+- **FR-020**: All work MUST occur on feature branch `feature/8-agave-accuracy-audit` created from `main` and tracked by issue [#8](https://github.com/equivocum/solana-forge/issues/8) per constitution Git Flow; direct commits to `main` are forbidden
 - **FR-021**: Each logical correction MUST be committed as its own conventional commit (docs/fix/chore), enabling item-by-item review
 - **FR-022**: After every applied change, the full automated test suite and type-checking MUST pass before proceeding to the next change; failures block further work until resolved
 - **FR-023**: Merging to `main` MUST happen only after all success criteria are met and the branch is reviewed as a whole
+- **FR-024**: All changes MUST be applied step by step; each step MUST be fully complete (implementation, tests, and type-check green, no partial state carried forward) before the next step begins, and each committed change unit MUST stay within 500 changed lines for easier review; larger corrections MUST be split into ordered sub-commits
 
 ### Key Entities *(include if feature involves data)*
 

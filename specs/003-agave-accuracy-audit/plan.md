@@ -1,6 +1,6 @@
 # Implementation Plan: Agave Accuracy Audit
 
-**Branch**: `003-agave-accuracy-audit` | **Date**: 2026-08-25 | **Spec**: [spec.md](./spec.md)
+**Branch**: `feature/8-agave-accuracy-audit` ([#8](https://github.com/equivocum/solana-forge/issues/8)) | **Date**: 2026-08-25 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/003-agave-accuracy-audit/spec.md`
 

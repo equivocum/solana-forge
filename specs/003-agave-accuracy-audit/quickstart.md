@@ -5,7 +5,7 @@ End-to-end validation that the corrected visualization matches Agave v4.2.1 and 
 ## Prerequisites
 
 - Node.js 18+, pnpm 9+
-- Working directory: repository root, branch `003-agave-accuracy-audit`
+- Working directory: repository root, branch `feature/8-agave-accuracy-audit` (issue #8)
 
 ## 1. Build & run
 
