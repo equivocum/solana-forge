@@ -710,21 +710,30 @@ export const SHRED_SIG_VERIFY: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 1,
   detail: {
-    purpose: 'Verifies signatures on incoming shreds to ensure they come from the expected leader.',
-    role: 'Second stage of TVU. Verifies leader signatures on each shred.',
+    purpose: 'Proves each incoming shred was produced by the slot\'s rightful leader before anything touches blockstore.',
+    role: 'Second stage of TVU: verifies the leader\'s Ed25519 signature over the shred\'s FEC-set Merkle root, resolving the expected pubkey from the leader schedule.',
     howItWorks: {
       title: 'Shred Signature Verification',
       steps: [
         'Receive shreds from Shred Fetch',
-        'Verify Ed25519 signature against expected leader\'s public key',
-        'Check that signer matches the leader schedule for this slot',
-        'Discard shreds with invalid signatures',
-        'Pass valid shreds to Window Service',
+        'Extract the shred\'s Merkle proof and root from its payload',
+        'Resolve the slot\'s scheduled leader pubkey via the LeaderScheduleCache',
+        'Verify the Ed25519 signature over the Merkle root against that pubkey',
+        'Recently seen (pubkey, signature) pairs are LRU-cached to skip repeat work',
+        'Discard invalid shreds; pass valid ones to Window Service',
       ]
     },
-    whyItMatters: 'Prevents malicious validators from injecting fake shreds. Ensures only legitimate leader-produced data enters the blockstore.',
-    metrics: ['Signature verification: Ed25519']
+    whyItMatters: 'One signature per 64-shred set means verification stays cheap even at full throughput — and a forged shred cannot survive the Merkle-proof check against the scheduled leader.',
+    metrics: [
+      'Verified value: leader signature over the FEC-set Merkle root',
+      'Pubkey source: LeaderScheduleCache for the slot',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/sigverify_shreds.rs#L147',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/sigverify_shreds.rs#L82',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred/merkle.rs#L141-L142',
+  ],
   subComponents: []
 }
 
