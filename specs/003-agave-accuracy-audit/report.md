@@ -1,0 +1,75 @@
+# Findings Report: Agave Accuracy Audit
+
+**Feature**: [spec.md](./spec.md) · **Pinned standard**: `anza-xyz/agave` tag `v4.2.1` · **Status**: IN PROGRESS (ledger seeded; dispositions land alongside their correcting commits)
+
+## Methodology (draft — finalized in T026)
+
+### Evidence standard
+- Every retained factual claim must resolve to a permalink of the form `https://github.com/anza-xyz/agave/blob/v4.2.1/<repo-relative-path>#L<line>` (range `#L<a>-L<b>` where appropriate) — data contract C-1.
+- Where the pinned source and secondary material (docs, blogs, talks) conflict, the pinned source governs (FR-003); the divergence is recorded as a finding row.
+- Claims without verifiable pinned-source support are removed or explicitly labeled `(simplification)` in-app per FR-004 / ui-tour-contract T-6, each with a ledger row classified `misleading-simplification`.
+- Constants whose *definitions* live in published Solana crates external to the agave repo (e.g., `solana-clock`, `solana-vote-program`) cannot receive an in-repo definitional permalink; they are anchored to authoritative in-repo usage/test sites instead, and noted here (see W-39/W-40).
+
+### Procedure (how every anchor below was derived)
+1. Check out tag `v4.2.1` content (`git grep <pattern> v4.2.1 -- <path>` against a local clone of `anza-xyz/agave`) — raw↔blob line parity makes these numbers directly usable in GitHub permalinks.
+2. Locate the governing symbol/constant for each research.md (D-2…D-12) claim; record `file#L<n>` or `#L<a>-L<b>`.
+3. During implementation, each corrected component's `refs[]` reuses these anchors; spot-check ≥10 permalinks in-browser (SC-002, quickstart §4).
+
+### Re-audit against a newer tag (draft — expanded in T026)
+Pin the new tag → repeat steps 1–2 for every claim in the ledger's after-evidence column → diff old vs new anchors → any drift opens a new finding row instead of silently editing claims.
+
+## Working Notes — verified v4.2.1 line anchors (T002)
+
+Legend: ✅ anchor verified against tag content. ⏳ = finalize during the owning component task (symbol not resolvable by simple grep).
+
+| ID | Claim (research ref) | File | Anchor |
+|----|----------------------|------|--------|
+| W-01 | Validator service tree spawned by `Validator::new` (D-2) | core/src/validator.rs | #L688, spawns #L1027–L1589 |
+| W-02 | RPC entry: `JsonRpcService::new_with_config` (D-2/D-11) | core/src/validator.rs | #L1303 |
+| W-03 | Gossip / Poh / ServeRepair services spawned (D-2) | core/src/validator.rs | #L1478, #L1525, #L1589 |
+| W-04 | Three QUIC endpoints `solQuicTVo`, `solQuicTpu`, `solQuicTpuFwd` (D-3) | core/src/tpu.rs | #L220–L265 |
+| W-05 | Stake-weighted vs simple-QoS server spawning (D-3) | core/src/tpu.rs | #L56, #L244–L265 |
+| W-06 | `SigVerifyStage` inside TPU handles non-vote + vote packets (D-3) | core/src/tpu.rs | #L284 |
+| W-07 | Standalone Forwarding Stage: `spawn_forwarding_stage` (D-3) | core/src/tpu.rs | #L338–L341 |
+| W-08 | Manager thread "BankingMgr" on tokio current-thread runtime (D-4) | core/src/banking_stage.rs | #L390–L392 |
+| W-09 | Scheduler thread "solBnkTxSched" (D-4) | core/src/banking_stage.rs | #L570 |
+| W-10 | N ConsumeWorkers "solCoWorker{id}" (D-4) | core/src/banking_stage.rs | #L549 |
+| W-11 | Dedicated VoteWorker "solBanknStgVote" consuming TPU-vote receiver (D-4) | core/src/banking_stage.rs | #L609–L623 |
+| W-12 | GreedyScheduler over priority container (D-4) | core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs | #L32–L81 |
+| W-13 | Buffered-packet decisions incl. `ForwardAndHold` (D-4) | core/src/banking_stage/decision_maker.rs | #L15, #L60 |
+| W-14 | Blockhash/fee-payer checks: `check_fee_payer_unlocked` in consumer (D-4/D-13) | core/src/banking_stage/consumer.rs | #L474 |
+| W-15 | Worker count default 4 (`const NUM_WORKERS`) (D-4) | core/src/banking_stage/transaction_scheduler/scheduler_common.rs | #L326 |
+| W-16 | Tick producer thread "solPohTickProd" (D-5) | poh/src/poh_service.rs | #L120 |
+| W-17 | WorkingBank tick-range flush contract (D-5) | poh/src/poh_recorder.rs | #L4–L11, #L127–L131 |
+| W-18 | Bounded `record_channels` fed by TransactionRecorder (D-5) | poh/src/record_channels.rs | #L31 |
+| W-19 | Leadership gating `would_be_leader` (D-5/D-15) | poh/src/poh_recorder.rs | #L729 |
+| W-20 | FEC set 32 data : 32 coding (D-6) | ledger/src/shred.rs | #L121–L122 |
+| W-21 | `MAX_DATA_SHREDS_PER_SLOT` (D-6) | ledger/src/shred.rs | #L128 |
+| W-22 | Merkle-root signing / chained roots (D-6) | ledger/src/shred/src/merkle.rs | ⏳ finalize in T022 (broadcast) |
+| W-23 | TVU assembly: ShredFetch → shred-sigverify → Retransmit → WindowService (D-7) | core/src/tvu.rs | fields #L113–L116, wiring #L359–L454 |
+| W-24 | Shred sigverify resolves scheduled leader via LeaderScheduleCache (D-7) | turbine/src/sigverify_shreds.rs | #L82, #L147 |
+| W-25 | Duplicate detection: MerkleRootConflict / ChainedMerkleRootConflict (D-7) | core/src/window_service.rs | #L148–L162 |
+| W-26 | Parallel replay pools config (D-8) | core/src/replay_stage.rs | #L415–L416, #L736–L737, #L878–L882 |
+| W-27 | Fork-choice gating before voting: `select_vote_and_reset_forks` (D-8) | core/src/replay_stage.rs | #L13–L15 |
+| W-28 | Switch/duplicate thresholds (D-8/D-9) | core/src/replay_stage.rs | #L13, #L130 |
+| W-29 | Tower stack full → pop oldest (=root); `double_lockouts`; lockout = `INITIAL_LOCKOUT.pow(n)` (D-9) | core/src/consensus/tower_vote_state.rs | #L48, #L70, #L161 |
+| W-30 | Optimistic-confirmation threshold `VOTE_THRESHOLD_SIZE = 2/3` (D-9) | runtime/src/commitment.rs | #L9, #L141 |
+| W-31 | `NUM_CONSECUTIVE_LEADER_SLOTS = 4` (D-10) | leader-schedule/src/lib.rs | #L20 |
+| W-32 | Stake-weighted ChaCha-seeded schedule draw (D-10) | leader-schedule/src/lib.rs | #L8, #L44, #L60 |
+| W-33 | Schedule cache computed one epoch ahead at root (D-10) | ledger/src/leader_schedule_cache.rs | #L44–L62, #L71–L80 |
+| W-34 | Vote listener `recv_loop` polls `cluster_info.get_votes` (D-11) | core/src/cluster_info_vote_listener.rs | #L510, #L529 |
+| W-35 | `VoteTracker` / per-slot trackers (D-11) | core/src/cluster_info_vote_listener.rs | #L128–L142 |
+| W-36 | Verified gossip vote hashes forwarded toward replay/tower (D-11) | core/src/cluster_info_vote_listener.rs | #L73, #L482 |
+| W-37 | CPU-parallel verification batch size `VERIFY_PACKET_CHUNK_SIZE = 128` (D-12/D-13) | perf/src/sigverify.rs | #L15 |
+| W-38 | GPU/CUDA code removed upstream — evidence type PR (not source line) (D-12) | github.com/anza-xyz/agave/pull/3817 | PR link |
+| W-39 | `INITIAL_LOCKOUT`, `MAX_LOCKOUT_HISTORY` definitions live in published `solana-vote-program` crate — no in-repo definitional permalink; anchored via W-29 usage/tests | — | note |
+| W-40 | `DEFAULT_TICKS_PER_SLOT` (64), `MAX_PROCESSING_AGE` defined in published `solana-clock` crate — same treatment as W-39 | core/src/replay_stage/tests.rs | #L90 (usage assertion) |
+
+## Findings Ledger (seeded from research D-sections; dispositions added per FR-021 pairing)
+
+Columns: Component(s) · Prior claim · Classification (`incorrect` | `misleading-simplification` | `missing`) · Correction · Before-evidence · After-evidence · Disposition.
+*(Table inserted by T003.)*
+
+## Disposition Rules
+- Each row reaches exactly one terminal state: `corrected-in-app` | `labeled-simplification` | `deferred:<rationale>` (SC-003).
+- Rows ride along the commit that implements their correction (FR-021); suite+tsc green required (FR-022).
