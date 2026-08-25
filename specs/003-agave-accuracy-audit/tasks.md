@@ -99,7 +99,7 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
   4. fix(turbine): stake-weighted trees, data/coding interleave
   5. fix(quic-streamer): three endpoints solQuicTpu/solQuicTpuFwd/solQuicTVo, stake-weighted QoS
   6. fix(accounts-db,bank): execution writes deltas to bank state; durable persistence is asynchronous — stored at freeze, squashed/consolidated around root advancement by AccountsBackgroundService, hardened via snapshots
-- [ ] T023 [US3] Integrate new/renamed nodes into PipelineFlowView + LayeredView layouts in src/components/architecture/ (positions, layer assignments rpc-api→networking, listener/service→consensus); extend tour steps referencing them; story gate: suite green, both views render all nodes
+- [x] T023 [US3] Integrate new/renamed nodes into PipelineFlowView + LayeredView layouts in src/components/architecture/ (positions, layer assignments rpc-api→networking, listener/service→consensus); extend tour steps referencing them; story gate: suite green, both views render all nodes
 
 **Checkpoint**: Coverage complete — every major real service has a diagram presence.
 

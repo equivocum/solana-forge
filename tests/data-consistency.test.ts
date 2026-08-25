@@ -6,6 +6,7 @@ import {
   VOTE_FLOW,
 } from '../src/components/architecture/data/connections'
 import { ALL_COMPONENTS } from '../src/components/architecture/data/components'
+import { LAYERS } from '../src/components/architecture/data/components'
 
 const connectionSet = new Set(ALL_CONNECTIONS.map(c => `${c.from}->${c.to}`))
 const componentIds = new Set(ALL_COMPONENTS.map(c => c.id))
@@ -85,5 +86,25 @@ describe('Data consistency', () => {
     expect(connectionSet.has('gulf-stream->quic-streamer')).toBe(false)
     expect(connectionSet.has('sig-verify->forwarding')).toBe(true)
     expect(connectionSet.has('forwarding->quic-streamer')).toBe(true)
+  })
+
+  it('every component is render-ready: unique id, layer, position (T023 gate)', () => {
+    const ids = ALL_COMPONENTS.map(c => c.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    ALL_COMPONENTS.forEach(c => {
+      expect(c.name.length).toBeGreaterThan(0)
+      expect(c.layer, `${c.id} missing layer`).toBeTruthy()
+      expect(typeof c.position).toBe('number')
+    })
+  })
+
+  it('every layer bucket is non-empty so both views render all nodes', () => {
+    ;(['networking','tpu','tvu','runtime','consensus','storage','programs'] as const).forEach(k => {
+      expect(LAYERS[k].length, `layer ${k} empty`).toBeGreaterThan(0)
+    })
+    // new US3 nodes land in their declared layers
+    expect(LAYERS.networking.some(c => c.id === 'rpc-api')).toBe(true)
+    expect(LAYERS.consensus.some(c => c.id === 'cluster-info-vote-listener')).toBe(true)
+    expect(LAYERS.consensus.some(c => c.id === 'voting-service')).toBe(true)
   })
 })
