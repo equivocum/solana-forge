@@ -45,10 +45,11 @@ export const CROSS_PIPELINE: Connection[] = [
 // Networking connections
 export const NETWORKING_CONNECTIONS: Connection[] = [
   { from: 'rpc-api', to: 'quic-streamer', label: 'Push toward leaders', type: 'data' },
+  { from: 'sig-verify', to: 'forwarding', label: 'Packets we will not process', type: 'data' },
+  { from: 'forwarding', to: 'quic-streamer', label: 'One-hop forward to next leader', type: 'data' },
   { from: 'gossip', to: 'turbine', label: 'Peer info', type: 'shared' },
   { from: 'gossip', to: 'tower-bft', label: 'Cluster info', type: 'shared' },
   { from: 'repair', to: 'window-service', label: 'Missing shreds', type: 'data' },
-  { from: 'gulf-stream', to: 'quic-streamer', label: 'Forwarded txs', type: 'data' },
 ]
 
 // Consensus connections

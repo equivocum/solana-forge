@@ -78,4 +78,12 @@ describe('Data consistency', () => {
     expect(TX_LIFECYCLE_PATH[0]).toBe('rpc-api')
     expect(connectionSet.has('rpc-api->quic-streamer')).toBe(true)
   })
+
+  it('forwarding is a single merged node wired to sig-verify and quic (FR-014)', () => {
+    expect(componentIds.has('forwarding')).toBe(true)
+    expect(componentIds.has('gulf-stream')).toBe(false)
+    expect(connectionSet.has('gulf-stream->quic-streamer')).toBe(false)
+    expect(connectionSet.has('sig-verify->forwarding')).toBe(true)
+    expect(connectionSet.has('forwarding->quic-streamer')).toBe(true)
+  })
 })

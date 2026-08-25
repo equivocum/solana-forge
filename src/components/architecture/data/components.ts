@@ -167,37 +167,6 @@ export const RPC_API: ArchitectureComponent = {
   subComponents: []
 }
 
-export const GULF_STREAM: ArchitectureComponent = {
-  id: 'gulf-stream',
-  name: 'Gulf Stream',
-  icon: '🌊',
-  category: 'networking',
-  layer: 'networking',
-  pipeline: 'shared',
-  position: 1,
-  detail: {
-    purpose: 'Eliminates the traditional mempool by forwarding transactions directly to upcoming leaders.',
-    role: 'Transactions are forwarded to the current slot leader AND the next 2 upcoming leaders via QUIC.',
-    howItWorks: {
-      title: 'Mempool-less Forwarding',
-      steps: [
-        'RPC node receives transaction from client',
-        'Looks up leader schedule (known 2 epochs in advance)',
-        'Forwards transaction to current leader + next 2 leaders via QUIC',
-        'No persistent mempool — transactions not processed are dropped',
-        'Leader processes or drops within one slot (~400ms)',
-      ]
-    },
-    whyItMatters: 'No mempool means no state bloat, no MEV from mempool monitoring, and guaranteed delivery to leaders. Transactions either get processed or expire.',
-    metrics: [
-      'Forwarding: current + next 2 leaders',
-      'Blockhash validity: 151 slots (~60-90s)',
-      'Outbound queue cap: 10,000 txs during congestion',
-    ]
-  },
-  subComponents: []
-}
-
 export const GOSSIP: ArchitectureComponent = {
   id: 'gossip',
   name: 'Gossip (CRDS)',
@@ -662,28 +631,37 @@ export const BROADCAST: ArchitectureComponent = {
 
 export const FORWARDING: ArchitectureComponent = {
   id: 'forwarding',
-  name: 'Forwarding Stage',
+  name: 'Forwarding (Gulf Stream)',
   icon: '➡️',
   category: 'tpu',
   layer: 'tpu',
   pipeline: 'tpu',
   position: 5,
   detail: {
-    purpose: 'Forwards received transactions to upcoming leaders when the node is not the current leader.',
-    role: 'Active when node is not producing blocks. Sorts packets by priority before forwarding.',
+    purpose: 'Solana\'s mempool-less push model: transactions travel toward whoever the schedule says leads next, instead of idling in a shared pool.',
+    role: '"Gulf Stream" is the informal name for that push model. On validators it runs as a one-hop Forwarding Stage fed by signature verification; RPC nodes do the same job via SendTransactionService pushes.',
     howItWorks: {
-      title: 'Forwarding Logic',
+      title: 'One Hop Toward Leadership',
       steps: [
-        'Check if node is current leader',
-        'If not leader: sort received packets by priority',
-        'Always forward TPU votes (consensus critical)',
-        'Non-vote transactions forwarded only if node has option enabled',
-        'One-hop limit: forwarding only to tpu_forwards port',
+        'Verified packets that this node will not process itself (not the scheduled leader for their slot) are queued here',
+        'The stage resolves upcoming leaders from the deterministic leader schedule',
+        'Packets forward exactly one hop — to the next leaders\' dedicated TPU-forwards QUIC endpoint',
+        'Votes always forward (consensus-critical); ordinary transactions follow node configuration',
+        'Buffering precedes leadership: packets simply wait until that leader\'s slot begins',
+        'There is no mempool dwell — blockhash expiry bounds a transaction\'s lifetime (~60–90s), after which it can never execute',
       ]
     },
-    whyItMatters: 'Ensures transactions reach the leader even when received by non-leader validators. Critical for Gulf Stream\'s mempool-less design.',
-    metrics: ['Forwarding limit: one hop', 'Outbound queue cap: 10,000 txs']
+    whyItMatters: 'When the slot starts, the leader\'s Banking Stage orders everything by fee and compute-unit price — never by who forwarded a packet or when. Push-model delivery and execution ordering are entirely separate concerns.',
+    metrics: [
+      'Forward limit: one hop (to TPU-forwards port)',
+      'Transaction lifetime bound: blockhash age limit',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L338-L341',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/forwarding_stage.rs#L72',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L20',
+  ],
   subComponents: []
 }
 
@@ -1698,7 +1676,7 @@ export const EPOCH_SCHEDULE: ArchitectureComponent = {
 
 export const ALL_COMPONENTS: ArchitectureComponent[] = [
   // Networking
-  RPC_API, QUIC_STREAMER, GULF_STREAM, GOSSIP, REPAIR, TURBINE,
+  RPC_API, QUIC_STREAMER, GOSSIP, REPAIR, TURBINE,
   // TPU Pipeline
   TPU_FETCH, SIG_VERIFY, BANKING_STAGE, POH_RECORDING, BROADCAST, FORWARDING,
   // TVU Pipeline
