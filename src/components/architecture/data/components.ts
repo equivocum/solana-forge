@@ -585,46 +585,52 @@ export const BROADCAST: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 4,
   detail: {
-    purpose: 'Serializes completed entries into shreds and sends them via Turbine to the network.',
-    role: 'Final stage of TPU pipeline. Runs in parallel with Banking Stage — entries stream out as produced.',
+    purpose: 'Streams the growing block to the network as self-certifying shreds while production is still under way.',
+    role: 'Final leader-side stage: serializes entries into data shreds, adds Reed-Solomon coding shreds, and signs each FEC set\'s Merkle root.',
     howItWorks: {
       title: 'Broadcast Flow',
       steps: [
-        'Receives entries from Banking Stage',
-        'Serializes entries into data shreds (~1,228 bytes each)',
-        'Generates coding shreds via Reed-Solomon erasure coding (32:32 FEC)',
-        'Signs shreds with leader\'s keypair',
-        'Sends shreds through Turbine tree to network peers',
+        'Receives recorded entries from PoH recording',
+        'Shredder serializes entries into 32 data shreds per FEC set',
+        'Reed-Solomon coding produces 32 matching coding shreds',
+        'The FEC set\'s Merkle root is computed and signed by the leader — every shred carries a Merkle proof plus that one signature',
+        'chained_merkle_root ties each FEC set to the previous one, making the whole slot order-tamper-evident',
+        'Shreds fan out through Turbine immediately — no waiting for full-block assembly',
       ]
     },
-    whyItMatters: 'Continuous block building: entries stream out as produced, not after full block assembly. Reduces latency.',
+    whyItMatters: 'Signing Merkle roots instead of individual shreds keeps signing nearly free: one signature certifies all 64 shreds of a set, and the chain of roots proves both authenticity and sequence.',
     metrics: [
-      'Data shred: ~1,228 bytes payload',
-      'FEC ratio: 32:32 (data:coding)',
-      'Signed by slot leader',
+      'FEC ratio: 32 data : 32 coding',
+      'Max data shreds per slot: 32,768',
+      'One leader signature per 64-shred FEC set',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L121-L122',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L128',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred/merkle.rs#L141-L142',
+  ],
   subComponents: [
     {
       id: 'erasure-coding',
       name: 'Reed-Solomon Erasure Coding',
       icon: '🧩',
       detail: {
-        purpose: 'Adds redundancy to shreds so blocks can be reconstructed from partial data.',
-        role: 'Generates coding shreds that allow recovery from lost data shreds.',
+        purpose: 'Adds redundancy so receivers can rebuild lost shreds locally.',
+        role: 'Each 32-data-shred FEC set gets 32 coding shreds computed via Reed-Solomon encoding.',
         howItWorks: {
           title: 'Erasure Coding',
           steps: [
-            'Split entry into 32 data shreds (~1,228 bytes each)',
-            'Generate 32 coding shreds using Reed-Solomon encoding',
-            'Any 32 of 64 shreds (data + coding) can reconstruct the original',
-            'Send all 64 shreds through Turbine',
-            'Receiver needs only 50% of shreds to recover full block',
+            'Entries are split into 32 data shreds per FEC set',
+            'Reed-Solomon parity math derives 32 coding shreds',
+            'Any 32 of the 64 shreds reconstruct the entire set',
+            'All 64 fan out through Turbine together',
           ]
         },
-        whyItMatters: '50% redundancy means blocks survive significant packet loss. Critical for Turbine\'s best-effort delivery model.',
-        metrics: ['FEC: 32 data + 32 coding = 64 total', 'Recovery threshold: 32 of 64']
-      }
+        whyItMatters: '50% redundancy turns packet loss into a local algebra problem instead of a retransmission round-trip.',
+        metrics: ['FEC: 32 data + 32 coding', 'Recovery threshold: any 32 of 64']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L121-L122']
     }
   ]
 }
