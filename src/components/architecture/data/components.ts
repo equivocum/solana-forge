@@ -746,21 +746,29 @@ export const WINDOW_SERVICE: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 2,
   detail: {
-    purpose: 'Assembles complete blocks from received shreds and handles repair requests for missing data.',
-    role: 'Tracks which shreds have been received per slot, detects missing shreds, and initiates repair.',
+    purpose: 'Turns a trickle of arriving shreds into complete slots: dedup, erasure recovery, retransmission, and blockstore insertion.',
+    role: 'The TVU\'s assembly line — tracks each slot\'s shred window, rebuilds missing pieces from coding shreds, and forwards recovered data downstream.',
     howItWorks: {
-      title: 'Block Assembly',
+      title: 'Assembly & Recovery',
       steps: [
-        'Track received shreds per slot in a window',
-        'Detect missing shreds by comparing against expected range',
-        'Initiate repair requests for missing shreds',
-        'Assemble contiguous entries from received shreds',
-        'Feed assembled entries to Replay Stage',
+        'Track received shreds per slot in the window',
+        'Duplicate candidates are checked — including Merkle-root and chained-Merkle-root conflict detection for duplicate-slot evidence',
+        'Missing data shreds are reconstructed via ShredRecoveryContext when enough coding shreds arrive',
+        'Recovered data shreds are even retransmitted onward, so this node\'s recovery also feeds the tree below it',
+        'Complete shreds are inserted into Blockstore; assembled slots head to Replay Stage',
       ]
     },
-    whyItMatters: 'Turbine is best-effort. Window Service ensures complete block reconstruction through repair, maintaining data availability.',
-    metrics: ['Window size: configurable', 'Repair: on-demand']
+    whyItMatters: 'Turbine is best-effort, yet blocks must be exact. Recovery plus conflict tracking is what makes loss survivable and leader misbehavior provable.',
+    metrics: [
+      'Recovery: any 32 of 64 shreds per FEC set',
+      'Conflicts tracked: MerkleRoot / ChainedMerkleRoot',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L148-L162',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L219',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L444-L458',
+  ],
   subComponents: []
 }
 
