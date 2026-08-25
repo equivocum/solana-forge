@@ -8,6 +8,12 @@
 
 **Input**: User description: "Audit and correct Solana Forge's Solana validator architecture visualization so it exactly matches a real validator (Anza's Agave client, pinned release v4.2.1). Every claim must be independently researched and verified against the Agave source code, cited by exact file and line via permanent GitHub links. Fill gaps in coverage, fix the transaction lifecycle ordering, add the missing vote return path, restructure the guided tour, document all findings, and apply every change through git flow with step-by-step verification."
 
+## Clarifications
+
+### Session 2026-08-25
+
+- Q: How should forwarding be represented given "Gulf Stream" is an informal concept name rather than code? → A: One merged node named "Forwarding (Gulf Stream)" consolidating today's `gulf-stream` and `forwarding` components (id `forwarding` retained); mechanics attributed to real stages; duplicated leader-schedule content moves under `epoch-schedule`
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Trustworthy Transaction Lifecycle (Priority: P1)
@@ -125,7 +131,7 @@ A future contributor wants to understand what was wrong, why it was wrong, what 
 - **FR-011**: Three missing independent services MUST become first-class diagram nodes: the client-facing remote interface (true transaction entry point), the inbound cluster-vote listener, and the outbound vote publisher — connected per the hybrid depth rule (independent services as nodes; intra-component threads as detail-panel items)
 - **FR-012**: Detail panels MUST reflect the real internal structure of their components, including: the dedicated vote worker and scheduler/worker split inside transaction processing; the ledger-clock recorder/service split; Merkle-root-signed erasure-coded fragments with chained roots for propagation; fragment signature verification against the scheduled leader for the slot; replay's parallel fork and transaction processing; and stake-weighted, seed-derived leader scheduling computed one epoch ahead
 - **FR-013**: Content describing graphics-hardware signature offload MUST be removed everywhere; verification is CPU-parallel at the pinned release
-- **FR-014**: The forwarding concept MUST be anchored to the real standalone forwarding stage (forwarding toward upcoming leaders), replacing the informal "mempool" framing
+- **FR-014**: Forwarding MUST be represented as a single first-class node named "Forwarding (Gulf Stream)", consolidating today's separate `gulf-stream` and `forwarding` components (id `forwarding` retained for stability). Its content MUST present Gulf Stream as the informal name for Solana's mempool-less push model while attributing all mechanics to real code paths (client/RPC push toward upcoming leaders, validator-side one-hop Forwarding Stage fed by signature verification, blockhash expiry bounding transaction lifetime instead of mempool dwell). Leader-schedule content duplicated there MUST move under `epoch-schedule`. Content claiming validators execute transactions ahead of their scheduled slots or that processing priority follows the forwarding validator's stake MUST NOT appear (buffering precedes leadership; execution ordering is fee/priority-based)
 
 **Guided Tour**
 

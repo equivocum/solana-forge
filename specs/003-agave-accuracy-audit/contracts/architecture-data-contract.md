@@ -30,18 +30,18 @@ https://github.com/anza-xyz/agave/blob/v4.2.1/<repo-relative-path>(#L<line>|#L<s
 | `replay-stage` | Add parallel replay pools, fork-choice gating before voting |
 | `tower-bft` | Lockout math (initial 2, ×2 doubling, 31-deep stack), confirmed-vs-finalized levels |
 | `epoch-schedule` | Schedule derivation independent of consensus voting |
-| `gulf-stream` | Reframe around real standalone forwarding stage |
+| `gulf-stream` + `forwarding` | **MERGED** into single node id `forwarding`, display name "Forwarding (Gulf Stream)"; `gulf-stream` component retired; its leader-schedule sub-content moves under `epoch-schedule`; content corrected per spec FR-014 (no ahead-of-time execution, no forwarder-stake priority) |
 | `quic-streamer` | Three distinct endpoints (TPU / TPU-forwards / TPU-vote) |
 
 Layer assignments for new nodes: `rpc-api` → networking; `cluster-info-vote-listener`, `voting-service` → consensus.
 
 ## C-3. Connection deltas
 
-**Removed edges:** (`sig-verify`,`status-cache`), (`tower-bft`,`epoch-schedule`)
+**Removed edges:** (`sig-verify`,`status-cache`), (`tower-bft`,`epoch-schedule`), (`gulf-stream`,`quic-streamer`) — the last because the `gulf-stream` component is retired
 
 **New group:** `VOTE_FLOW: Connection[]` exported alongside existing groups; included in `ALL_CONNECTIONS` union.
 
-**Required new edges (minimum):** (`rpc-api`,`quic-streamer`), (`cluster-info-vote-listener`,`banking-stage`), (`replay-stage`,`voting-service`), (`voting-service`,`gossip`), (`gossip`,`cluster-info-vote-listener`).
+**Required new edges (minimum):** (`rpc-api`,`quic-streamer`), (`cluster-info-vote-listener`,`banking-stage`), (`replay-stage`,`voting-service`), (`voting-service`,`gossip`), (`gossip`,`cluster-info-vote-listener`), (`sig-verify`,`forwarding`), (`forwarding`,`quic-streamer`).
 
 ## C-4. TX_LIFECYCLE_PATH delta
 

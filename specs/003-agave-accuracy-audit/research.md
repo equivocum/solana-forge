@@ -87,6 +87,21 @@ All citations below use permanent permalinks of the form
 - Anza TPU doc page still describes older sigverify/dedup ordering generically; source governs (FR-003): dedup filter = packet Bloom filter in perf (`deduper`), StatusCache/blockhash checks = banking stage.
 - Solana.com transaction-pipeline page (8 stages, refs @v3.1.8) broadly consistent; used as secondary corroboration only.
 
+## D-15. Third-party source vetting: "Engineering Solana" Gulf Stream excerpt
+
+Fact-checked claim-by-claim against pinned sources (feeds FR-003/FR-004 disposition):
+
+| Excerpt claim | Verdict | Reality |
+|---|---|---|
+| No global mempool; deterministic leader schedule lets txs be distributed to upcoming leaders ahead of their slots | ✅ Accurate in spirit | Client/RPC pushes toward current+upcoming leaders (QUIC); validators run one-hop ForwardingStage; no persistent mempool — blockhash validity window bounds lifetime |
+| "Ensuring upcoming leaders already have transactions" | ⚠️ Overstated | Best-effort push, no delivery guarantee; Banking Stage buffers near leadership and drops on slot boundaries |
+| "Validators can execute transactions ahead of time" | ❌ Inaccurate | Buffering ≠ execution; execution happens only against a working bank while the node is leader (`would_be_leader` gating, `DecisionMaker`) |
+| Processing priority follows stake weight of forwarding validator | ⚠️ Conflated | Stake governs ingress QoS (connection/stream limits), sigverify batch ordering, vote drain order — but block-inclusion/execution ordering is fee/compute-unit-price based (GreedyScheduler/prio-graph) |
+| No fee competition for block space ("no gas auctions") | ❌ Inaccurate | Priority fees (compute unit price) are exactly the congestion-competition mechanism for inclusion/ordering; different from Ethereum's base-fee auction but competition exists |
+| Comparative Bitcoin/Ethereum mempool characterization (~20k–100k pending; gossip filter overhead; ≥2× propagation) | ➖ Out of audit scope | Plausible qualitative framing; not verifiable against Agave sources |
+
+**Disposition**: excerpt usable only as conceptual framing for the merged Forwarding (Gulf Stream) node's prose; the three ❌ claims must not appear in app content.
+
 ## D-14. Constitution re-check post-design
 
 - All six principles remain satisfied; RPC/Validator separation strengthened by new remote-interface node; no violations introduced by design artifacts (contracts keep existing data shapes; UI contract preserves tour interaction semantics).
