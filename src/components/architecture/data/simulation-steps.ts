@@ -44,7 +44,7 @@ export const SIMULATION_STEPS: SimulationStep[] = [
       'Packets from all endpoints are pulled into unified channels and prepared for verification. Votes travel in their own lane from the very start.',
     annotation: [
       { type: 'STAGE', content: 'INGRESS — packet batching before verification', sourceRef: ref('core/src/tpu.rs', 'L284') },
-      { type: 'WHY', content: 'Separating vote packets early lets downstream stages protect consensus latency from transaction spam.', sourceRef: ref('core/src/tpu.rs', 'L609') },
+      { type: 'WHY', content: 'Separating vote packets early lets downstream stages protect consensus latency from transaction spam.', sourceRef: ref('core/src/tpu.rs', 'L220-L221') },
     ],
     duration: 2600,
   },
