@@ -1409,29 +1409,29 @@ export const ACCOUNTS_DB: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'Persistent storage and indexing of all on-chain account data.',
-    role: 'Core data layer. Memory-mapped files, sharded index, write/read caches, background cleanup.',
+    purpose: 'Durable home of on-chain account data — written asynchronously, well after execution has moved on.',
+    role: 'Execution writes deltas into bank state first; AccountsDB catches up in the background as banks freeze and roots advance, consolidated by the AccountsBackgroundService.',
     howItWorks: {
       title: 'AccountsDB Architecture',
       steps: [
-        '1. Accounts stored in AppendVecs (memory-mapped files per slot)',
-        '2. Account Index: maps Pubkey → Vec<(Slot, file_id, offset)>',
-        '3. Index sharded into 8,192 bins by first N bits of pubkey',
-        '4. Write Cache: per-slot caching before flushing to disk',
-        '5. Read Cache: caches full account data after first disk read',
-        '6. Background Flushing: moves accounts from write cache to disk',
-        '7. Background Cleaning: removes dead accounts (zero lamports)',
-        '8. Background Shrinking: compacts account files',
+        'Executed transactions update in-memory bank state — nothing waits for disk here',
+        'When a bank freezes at slot end, its cached accounts become flush candidates',
+        'AccountsBackgroundService flushes write-cache entries into AppendVecs on disk',
+        'Around root advancement it also cleans dead accounts and squashes/consolidates older storages',
+        'Account Index maps each Pubkey to its storage locations across those files',
+        'Read cache keeps hot accounts in memory after their first disk touch',
       ]
     },
-    whyItMatters: 'AccountsDB is the source of truth for all on-chain state. Performance directly impacts TPS.',
+    whyItMatters: 'Because durability is decoupled from execution, neither block production nor replay ever stalls on I/O — finality triggers the write-back instead.',
     metrics: [
-      'Index bins: 8,192',
-      'Write cache limit: 15GB default',
-      'File format: memory-mapped AppendVecs',
-      '64-byte alignment for all entries',
+      'Storage: memory-mapped AppendVecs',
+      'Background phases: flush → clean → squash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/accounts_background_service.rs#L426',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/validator.rs#L1045',
+  ],
   subComponents: [
     {
       id: 'append-vecs',
@@ -1515,25 +1515,28 @@ export const BANK: ArchitectureComponent = {
   pipeline: 'shared',
   position: 2,
   detail: {
-    purpose: 'In-memory representation of account state at a specific slot.',
-    role: 'Snapshot of all accounts and balances at start of block. Used by both Banking Stage and Replay Stage.',
+    purpose: 'The in-memory state machine for one slot: all account balances plus the transaction results being applied to them.',
+    role: 'Execution\'s immediate destination — Banking Stage consume-workers and ReplayStage both apply deltas here; durable storage catches up later.',
     howItWorks: {
       title: 'Bank State',
       steps: [
-        'Created per-slot as a checkpoint',
-        'Contains: prev_hash (PoH chain), tick_height, votes',
-        'blockhash_queue: 300 most recent blockhashes (valid for 151 slots)',
-        'Provides interface to apply transactions and record results',
-        'Deterministic: same transactions in same order = identical Bank state',
+        'A child bank is created per slot, checkpointing its parent',
+        'Carries the PoH hash chain position, tick height, and vote accounts',
+        'Tracks a bounded window of recent blockhashes — a transaction is valid only while its blockhash is young enough to process',
+        'Provides the interface transactions execute against (load_and_execute_transactions)',
+        'Fully deterministic: same inputs in same order always produce identical state',
       ]
     },
-    whyItMatters: 'Bank is the fork point. When fork switch occurs, validator rolls back to last voted Bank and replays.',
+    whyItMatters: 'Banks are fork points: competing slots build competing banks, and whichever branch gets rooted is the one whose state eventually reaches AccountsDB.',
     metrics: [
-      'Blockhash queue: 300 entries',
-      'Blockhash validity: 151 slots (~60-90s)',
-      'Deterministic state',
+      'One bank per slot (child of parent-slot bank)',
+      'Deterministic state transitions',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/bank.rs#L1',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L318',
+  ],
   subComponents: []
 }
 
