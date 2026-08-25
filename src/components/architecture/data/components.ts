@@ -821,46 +821,50 @@ export const SVM_PIPELINE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'The complete transaction execution pipeline within the Solana Virtual Machine.',
-    role: 'Entry point to the runtime. Manages parallel execution, account locking, and program invocation.',
+    purpose: 'Executes transactions: loads their accounts, runs each instruction, and applies the results to bank state.',
+    role: 'A library, not a pipeline stage. The same engine is invoked by Banking Stage consume-workers when producing a block and by ReplayStage when validating one.',
     howItWorks: {
-      title: 'SVM Execution Pipeline',
+      title: 'How SVM Executes a Batch',
       steps: [
-        '1. Block Processor: receives block, assigns transactions to worker threads',
-        '2. Transaction Scheduler: builds DAG of dependencies, enforces account locks',
-        '3. Transaction Processor: validates tx structure, loads accounts from AccountsDB',
-        '4. Instruction Processor: determines program type (Native or sBPF)',
-        '5. If Native: invoke directly. If sBPF: create VM instance and execute',
-        '6. Results committed to Bank state, locks released',
+        'A caller hands over a batch of transactions with account locks already held — Banking Stage consume-workers on the leader, ReplayStage during validation',
+        'Each transaction\'s accounts are loaded from AccountsDB caches into the execution context',
+        'Per instruction: built-in programs run as native Rust; on-chain programs run inside an sBPF virtual machine',
+        'Programs may invoke other programs via CPI, up to 5 frames deep',
+        'Execution results are applied to bank state and locks are released',
+        'Because both production and validation call this identical library, every validator agrees on outcomes',
       ]
     },
-    whyItMatters: 'SVM is Solana\'s execution engine. Its parallel execution model (account-level concurrency) is what enables 65,000+ TPS.',
+    whyItMatters: 'One engine, two callers: whoever executes it first — leader or validator — must reach the same result. That is what makes replayed blocks trustworthy.',
     metrics: [
-      'Max CPI depth: 5 (9 with SIMD-0268)',
-      'Max 64 txs per entry',
-      'Account-level parallelism',
+      'Max CPI depth: 5 (gated note: SIMD-0268 raises this to 9 once activated)',
+      'Account-level parallelism (locks held by the caller)',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L318',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/bank.rs#L1',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/execution_budget.rs#L7',
+  ],
   subComponents: [
     {
       id: 'block-processor',
-      name: 'Block Processor',
+      name: 'Block Processing (validation side)',
       icon: '🧱',
       detail: {
-        purpose: 'Entry point to the runtime. Receives blocks and assigns transactions to parallel worker threads.',
-        role: 'TransactionScheduler assigns transactions to threads based on account conflicts.',
+        purpose: 'Drives SVM over a received block\'s entries during replay, so validators independently reach the leader\'s results.',
+        role: 'The verification-side caller of the runtime: loads each entry\'s transactions and executes them against a candidate bank.',
         howItWorks: {
-          title: 'Block Processing',
+          title: 'Replaying a Block',
           steps: [
-            'TransactionScheduler builds priority DAG from pending transactions',
-            'Assigns non-conflicting transactions to parallel worker threads',
-            'Each thread acquires account locks before execution',
-            'Invokes Transaction Processor per transaction',
-            'Commits results and freezes slot state',
+            'A completed slot is read back from blockstore',
+            'Each entry\'s transactions are handed to the runtime in order',
+            'Account locks are acquired per transaction before execution',
+            'Results must match what the leader broadcast — any mismatch invalidates the block for this validator',
+            'When every entry succeeds, the bank is frozen',
           ]
         },
-        whyItMatters: 'Determines how many transactions can run in parallel. Optimal scheduling maximizes block utilization.',
-        metrics: ['Worker threads: 4 regular + 2 vote']
+        whyItMatters: 'This is the "trust but verify" half of Solana: no validator ever trusts a leader\'s claimed state; everyone recomputes it.',
+        metrics: ['Executes inside ReplayStage\'s parallel thread pools']
       }
     },
     {
