@@ -371,101 +371,164 @@ export const BANKING_STAGE: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 2,
   detail: {
-    purpose: 'The core block-building engine. Schedules and executes transactions, builds the block.',
-    role: 'Third stage of TPU. 6 independent worker threads (4 regular + 2 vote) schedule and execute transactions in parallel.',
+    purpose: 'Turns verified packets into executed transactions and finished entries — the block-building engine.',
+    role: 'Four cooperating thread roles: a manager thread owning the runtime, a scheduler thread ordering the work, N consume-workers executing in parallel, and a dedicated vote-worker so consensus traffic never starves.',
     howItWorks: {
-      title: 'Banking Stage Pipeline',
+      title: 'From Packets to Entries',
       steps: [
-        'Central Scheduler receives verified packets from SigVerify',
-        'Transactions sorted by priority: reward * 1M / (cost + 1)',
-        'Prio-Graph DAG built to identify account conflicts',
-        'Non-conflicting transactions scheduled in parallel across 4 worker threads',
-        '2 dedicated vote threads ensure consensus votes are never starved',
-        'Account locks acquired per transaction (write = exclusive, read = shared)',
-        'Transactions executed via SVM/Sealevel runtime',
-        'Results committed to Bank state',
+        'Manager thread ("BankingMgr") runs a tokio current-thread runtime and owns the stage\'s state',
+        'Scheduler thread ("solBnkTxSched") pulls packets into a priority container ordered by fee and compute-unit price',
+        'GreedyScheduler picks the highest-priority non-conflicting batch (prio-graph finds conflicts)',
+        'Batches go to ConsumeWorkers ("solCoWorker01…") — default 4 workers, up to 64 addressable via a u64 thread bitmask',
+        'Each worker executes its batch through SVM and commits results to bank state',
+        'A dedicated VoteWorker ("solBanknStgVote") drains votes from both the TPU-vote receiver and verified gossip votes, stake-weighted and one at a time so entries pack tightly',
+        'When we are not leader, buffered packets get a Consume / Forward / Hold decision instead',
       ]
     },
-    whyItMatters: 'This is where blocks are actually built. The scheduler determines throughput — a bad scheduler means wasted block space and lower TPS.',
+    whyItMatters: 'The scheduling policy decides block-space quality; isolating votes on their own worker keeps consensus latency stable even during spam.',
     metrics: [
-      'Worker threads: 4 regular + 2 vote',
-      'Block capacity: 48M CU (100M with SIMD)',
-      'Default per-tx budget: 200,000 CU',
-      'Max per-tx: 1,400,000 CU',
-      'Max 64 txs per entry (non-conflicting batch)',
+      'ConsumeWorkers: default 4, up to 64',
+      'Votes processed one-at-a-time (stake-weighted drain order)',
+      'Buffered decisions: Consume / Forward / ForwardAndHold / Hold',
+      'Per-tx compute budget default 200k CU, max 1.4M CU',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L390',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L549',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L570',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L609',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L237',
+  ],
   subComponents: [
     {
       id: 'central-scheduler',
-      name: 'Central Scheduler',
+      name: 'Scheduler Thread (GreedyScheduler)',
       icon: '🎛️',
       detail: {
-        purpose: 'Single scheduler thread that builds a priority graph and dispatches transactions to worker threads.',
-        role: 'Replaces legacy thread-local schedulers. Builds DAG of transaction dependencies, dispatches to workers.',
+        purpose: 'One thread sees every pending transaction and decides what executes next.',
+        role: 'The SchedulerController runs GreedyScheduler over a shared priority container, coordinating with SigVerify through a priority floor.',
         howItWorks: {
-          title: 'Central Scheduler Flow',
+          title: 'Scheduling Flow',
           steps: [
-            'Receives verified packets from SigVerify',
-            'Sorts by priority: reward * 1,000,000 / (cost + 1)',
-            'Builds Prio-Graph: DAG with edges between conflicting transactions (same accounts)',
-            'Look-ahead window pops transactions from priority queue into graph',
-            'Detects conflicts: transactions touching same accounts cannot run in parallel',
-            'Dispatches non-conflicting batches to worker threads',
-            'Handles re-queuing when locks cannot be acquired',
+            'Verified packets arrive from SigVerify into the priority container',
+            'Ordering key: fee and compute-unit price paid per transaction',
+            'GreedyScheduler repeatedly picks the best transaction that does not conflict with work already scheduled',
+            'prio-graph groups conflicting transactions onto the same execution path',
+            'Non-conflicting batches are dispatched to ConsumeWorkers',
+            'Transactions whose locks are busy are re-queued instead of blocking others',
           ]
         },
-        whyItMatters: 'Central scheduler has全局 view of all pending transactions, enabling optimal scheduling decisions. Replaces greedy local schedulers.',
-        metrics: ['Scheduler thread: single', 'Worker dispatch: non-conflicting batches']
-      }
+        whyItMatters: 'A single scheduler with a global view packs blocks far better than per-thread queues racing each other.',
+        metrics: ['One scheduler thread ("solBnkTxSched")', 'Dispatch unit: non-conflicting batch']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L570',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L53',
+      ]
     },
     {
       id: 'prio-graph',
-      name: 'Prio-Graph (DAG)',
+      name: 'Prio-Graph (Conflict Batching)',
       icon: '📊',
       detail: {
-        purpose: 'Directed Acyclic Graph that models transaction conflicts for parallel scheduling.',
-        role: 'Edges represent account conflicts. Non-conflicting transactions can execute simultaneously.',
+        purpose: 'Groups transactions by account conflict so independent ones can run simultaneously.',
+        role: 'A graph library GreedyScheduler uses: nodes are transactions; edges connect those touching the same account.',
         howItWorks: {
-          title: 'Prio-Graph Construction',
+          title: 'Batching by Conflict',
           steps: [
-            'Each transaction is a node in the graph',
-            'Edge from tx A → tx B if A and B access the same account and at least one writes',
-            'Priority ordering: higher priority transactions scheduled first',
-            'Graph join detection: conflicting future transactions queued on same thread',
-            'Enables parallel execution of independent transactions',
+            'Each pending transaction becomes a node, weighted by its priority',
+            'An edge appears when two transactions access the same account and at least one writes',
+            'Connected groups form batches that must execute on one worker in order',
+            'Unconnected batches can go to different workers in parallel',
+            'Higher-priority nodes pull their group forward in the queue',
           ]
         },
-        whyItMatters: 'Without DAG, scheduler would process transactions sequentially. DAG enables parallel execution of non-conflicting transactions.',
+        whyItMatters: 'Hot accounts (busy DEX pools) serialize their neighborhood — prio-graph makes that cost visible and contained instead of stalling everyone.',
+        metrics: ['Edge rule: same account + at least one write']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L53']
+    },
+    {
+      id: 'consume-workers',
+      name: 'ConsumeWorkers (execute + commit)',
+      icon: '⚙️',
+      detail: {
+        purpose: 'Execute scheduled batches in parallel and commit the results.',
+        role: 'N identical workers ("solCoWorker01…"); inside each, Consumer executes the batch via SVM and Committer applies results to bank state.',
+        howItWorks: {
+          title: 'Worker Execution',
+          steps: [
+            'Worker receives a non-conflicting batch from the scheduler',
+            'Consumer loads accounts, executes transactions, records fees and statuses',
+            'Committer commits the resulting deltas to bank state and releases locks',
+            'QoS accounting meters the packet bandwidth used, weighted by sender stake',
+            'Retryable failures return the batch to the scheduler for re-queuing',
+          ]
+        },
+        whyItMatters: 'Parallel workers on disjoint account sets is where Sealevel\'s throughput actually happens.',
         metrics: [
-          'Priority formula: reward * 1,000,000 / (cost + 1)',
-          'Conflict detection: same account + at least one write',
+          'Default 4 workers (const NUM_WORKERS)',
+          'Up to 64 addressable — ThreadAwareAccountLocks tracks holders in a u64 bitmask',
         ]
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L549',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/scheduler_common.rs#L326',
+      ]
+    },
+    {
+      id: 'vote-worker',
+      name: 'VoteWorker (dedicated vote lane)',
+      icon: '🗳️',
+      detail: {
+        purpose: 'Guarantees consensus votes flow even when ordinary traffic is saturating the stage.',
+        role: 'A single dedicated worker ("solBanknStgVote") consuming both the TPU-vote receiver and verified gossip votes.',
+        howItWorks: {
+          title: 'Vote Processing',
+          steps: [
+            'Votes arrive on two lanes: TPU-vote QUIC ingress and gossip-verified votes when we are leader',
+            'The worker drains queued votes ordered by validator stake',
+            'Votes execute one at a time so entries pack tightly for broadcast',
+            'Because this lane is separate, a spam flood cannot delay our own voting',
+          ]
+        },
+        whyItMatters: 'Vote latency directly affects how quickly the cluster confirms blocks — isolating it protects the network\'s heartbeat.',
+        metrics: ['One-at-a-time processing', 'Stake-weighted drain order']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L609',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L237',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L274',
+      ]
     },
     {
       id: 'account-locking',
       name: 'Account Locking',
       icon: '🔒',
       detail: {
-        purpose: 'Ensures transactions don\'t conflict during parallel execution by locking accounts.',
-        role: 'Write locks are exclusive. Read locks are shared. Prevents data races during parallel execution.',
+        purpose: 'Keeps parallel workers from touching the same account at once.',
+        role: 'ThreadAwareAccountLocks grants write locks exclusively and read locks to sharers, tracking which of up-to-64 workers holds each account.',
         howItWorks: {
           title: 'Lock Acquisition',
           steps: [
-            'Before execution, each thread acquires locks on all accounts the transaction touches',
-            'Write lock: exclusive access (no other thread can read or write)',
-            'Read lock: shared access (other threads can read but not write)',
-            'If lock cannot be acquired: transaction re-queued to waiting queue',
-            'Hot accounts (popular DEX pools) create serialization bottlenecks',
+            'Before executing, the worker locks every account the transaction touches',
+            'Write lock: exclusive — no other worker may read or write that account meanwhile',
+            'Read lock: shared — many readers allowed, no writers',
+            'A u64 bitmask per account records which workers hold it (one bit per worker)',
+            'If any lock is taken, the transaction is re-queued rather than blocked',
+            'Hot accounts create serialization points exactly here',
           ]
         },
-        whyItMatters: 'Account locking is what enables Sealevel parallelism. Without it, all transactions would need sequential execution.',
-        metrics: [
-          'Write lock cost: 300 CUs per account',
-          'Hot accounts create serialization bottlenecks',
-        ]
-      }
+        whyItMatters: 'This is the mechanism behind Sealevel: workers only need to coordinate where accounts actually overlap.',
+        metrics: ['Bitmask width: 64 workers max']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L247',
+      ]
     }
   ]
 }
