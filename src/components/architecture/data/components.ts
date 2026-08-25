@@ -479,51 +479,57 @@ export const POH_RECORDING: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 3,
   detail: {
-    purpose: 'Mixes entry hashes into the continuous SHA-256 hash chain (Proof of History).',
-    role: 'Single-threaded sequential SHA-256 loop that timestamps each entry. Cannot be parallelized.',
+    purpose: 'Stamps every executed batch into the ongoing SHA-256 hash chain, fixing its exact position in history.',
+    role: 'Leader-side recording half of Proof of History. Batches travel TransactionRecorder → bounded record_channels → PohService, which folds them into the chain immediately.',
     howItWorks: {
-      title: 'PoH Hash Chain',
+      title: 'Recording Into the Chain',
       steps: [
-        'Receive entries from Banking Stage',
-        'For each entry: hash = SHA-256(previous_hash + entry_data)',
-        'Intersperse ticks (64 per slot) — these are hash-only entries',
-        'Final PoH hash of slot becomes the block hash',
-        'Leader must publish blocks within PoH tick range or block is skipped',
+        'Consume-workers finish executing a batch',
+        'TransactionRecorder sends the batch over a bounded record channel',
+        'PohService immediately computes new_hash = SHA-256(previous_hash ‖ batch_data) — no storage step waits in between',
+        'Between batches, tick markers keep the chain advancing: 64 per slot by default',
+        'At the slot\'s final tick, accumulated entries flush to the working bank and continue on to Broadcast',
       ]
     },
-    whyItMatters: 'PoH proves chronological order without validator communication. It\'s a Verifiable Delay Function (VDF) — proves real time has passed.',
+    whyItMatters: 'The block literally is the recorded sequence: replaying the same hashes reproduces the same order, so transaction ordering needs no separate consensus.',
     metrics: [
       'Hash function: SHA-256',
-      'Ticks per slot: 64',
+      'Ticks per slot: 64 (default)',
       'Slot duration: ~400ms',
-      'Output: 32 bytes per tick',
+      'Output: 32 bytes per hash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/record_channels.rs#L31',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_recorder.rs#L127',
+  ],
   subComponents: [
     {
-      id: 'vdf',
-      name: 'Verifiable Delay Function',
+      id: 'tick-producer',
+      name: 'Inside the Hash Chain',
       icon: '🔐',
       detail: {
-        purpose: 'Proves passage of real time without requiring communication between validators.',
-        role: 'SHA-256 iteration N produces input for iteration N+1. Cannot be parallelized or sped up significantly.',
+        purpose: 'Shows exactly how successive hashes create a verifiable timeline.',
+        role: 'A purely sequential function: each value is derived only from the previous one, starting at genesis.',
         howItWorks: {
-          title: 'VDF Properties',
+          title: 'Chain Walkthrough',
           steps: [
-            'h₀ = genesis_hash',
+            'h₀ = genesis hash',
             'h₁ = SHA-256(h₀)',
-            'h₂ = SHA-256(h₁)',
-            '...',
-            'hₙ = SHA-256(hₙ₋₁)',
-            'Each hash depends on all previous hashes — sequential by design',
+            'h₂ = SHA-256(h₁) … hₙ = SHA-256(hₙ₋₁)',
+            'To mix in data (a transaction batch): h = SHA-256(h_prev ‖ batch_data) — the data becomes part of the chain',
+            'Every hash depends on all previous ones, so the sequence cannot be reordered or computed out of order',
+            'Anyone can start from h₀ and recompute the whole chain to verify it — no trust required',
           ]
         },
-        whyItMatters: 'ASIC resistance: exponential lockout growth outpaces linear ASIC speedup. A validator with 1000x faster hardware only gets ~10x advantage.',
+        whyItMatters: 'Each step is cheap but strictly sequential, so counting hashes measures elapsed work — a property shared with Verifiable Delay Functions (VDFs). PoH uses that property as a shared clock for ordering events; validators verify by recomputing rather than debating timestamps.',
         metrics: [
-          'Sequential: cannot be parallelized',
-          'ASIC resistance: exponential lockout > linear speedup',
+          '32 bytes per hash output',
+          'One dedicated thread, sequential by design',
         ]
-      }
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120'],
     }
   ]
 }
@@ -1082,26 +1088,30 @@ export const POH: ArchitectureComponent = {
   position: 0,
   detail: {
     purpose: 'Provides a verifiable, sequential clock that timestamps events before consensus.',
-    role: 'SHA-256 VDF. Not a consensus mechanism itself — it is a pre-consensus clock.',
+    role: 'A continuous SHA-256 hash chain. Not a consensus mechanism itself — it is the shared clock every validator recomputes for itself.',
     howItWorks: {
       title: 'PoH Mechanism',
       steps: [
         'Single-threaded SHA-256 loop on one core per validator',
-        'h₀ = genesis_hash',
-        'hₙ = SHA-256(hₙ₋₁)',
-        'Each hash proves real time has passed since previous hash',
-        '64 ticks per slot (~400ms)',
-        'Final tick hash = block hash',
+        'h₀ = genesis hash',
+        'hₙ = SHA-256(hₙ₋₁) — each value depends only on the one before',
+        'Transaction batches and ticks are folded into this chain as they happen',
+        'Because each step needs the previous one, N hashes prove N units of sequential work',
+        '64 ticks per slot (~400ms); the final tick hash closes the slot',
       ]
     },
-    whyItMatters: 'PoH proves chronological order without validator communication. Reduces consensus messaging overhead by providing a shared clock.',
+    whyItMatters: 'PoH gives every validator an identical, independently checkable timeline — no timestamp committee needed. Consensus then only has to agree on validity and fork choice.',
     metrics: [
       'Hash: SHA-256',
       'Ticks per slot: 64',
       'Slot duration: ~400ms',
-      'Output: 32 bytes per tick',
+      'Output: 32 bytes per hash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_recorder.rs#L127',
+  ],
   subComponents: []
 }
 
