@@ -59,7 +59,7 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 - [x] T008 [US1] Enrich `banking-stage` sub-components in src/components/architecture/data/components.ts: manager thread, GreedyScheduler/SchedulerController thread, dedicated VoteWorker consuming TPU-vote + gossip-vote receivers, N ConsumeWorkers (default 4, max 64 via u64 thread bitmask), Committer/Consumer/QoS roles, fee/compute-unit-price ordering, Consume/Forward/Hold decisions, stake-weighted one-at-a-time vote drain; refs; report row
 - [x] T009 [US1] Rewrite TX_LIFECYCLE_PATH ordering in src/components/architecture/data/connections.ts to corrected lifecycle; remove edge (sig-verify,status-cache); update tests/data-consistency.test.ts invariants in the SAME commit (removed-edge assertion, path existence): fix(lifecycle)+test
 - [x] T010 [US1] Restructure tour steps covering submission→ingress→verification→banking→execution→PoH→broadcast region in src/components/architecture/data/simulation-steps.ts; every step carries STAGE + WHY + REF badges minimum; renumber coherently
-- [ ] T011 [US1] Story gate: run `pnpm test` + `npx tsc --noEmit`; walk tour segment per specs/003-agave-accuracy-audit/quickstart.md §3 items 2–4; confirm zero GPU mentions repo-wide in app data (`rg -i "gpu|cuda" src/` returns nothing)
+- [x] T011 [US1] Story gate: run `pnpm test` + `npx tsc --noEmit`; walk tour segment per specs/003-agave-accuracy-audit/quickstart.md §3 items 2–4; confirm zero GPU mentions repo-wide in app data (`rg -i "gpu|cuda" src/` returns nothing)
 
 **Checkpoint**: MVP — the leader-path story is factually correct end-to-end and independently demonstrable.
 
