@@ -1187,74 +1187,88 @@ export const TOWER_BFT: ArchitectureComponent = {
   pipeline: 'shared',
   position: 1,
   detail: {
-    purpose: 'Achieves Byzantine Fault Tolerant consensus using stake-weighted voting.',
-    role: 'Vote tower with lockout periods. 2/3 supermajority required for confirmation.',
+    purpose: 'Turns thousands of independent validators into one agreed-upon history using stake-weighted voting.',
+    role: 'Each validator keeps a "tower": a stack of votes whose lockout periods double as they stack up, making reversals progressively more expensive.',
     howItWorks: {
       title: 'Tower BFT Consensus',
       steps: [
-        '1. Validator receives block from Replay Stage',
-        '2. Validates block correctness',
-        '3. Casts vote via on-chain vote transaction',
-        '4. Vote added to tower with lockout = 2 slots',
-        '5. All previous lockouts double (exponential growth)',
-        '6. Cannot vote on non-ancestor without waiting out lockout',
-        '7. Fork choice: heaviest subtree by stake-weighted votes',
-        '8. Supermajority (≥2/3 stake) on same fork = confirmed',
+        'Replay hands the tower a bank it has fully validated',
+        'Fork choice (heaviest stake-weighted subtree) decides whether voting on it is allowed',
+        'The vote goes on-chain as a transaction and is pushed to VotingService',
+        'First vote locks this fork for 2 slots; each further consecutive vote doubles the previous lockout',
+        'A validator cannot vote on a conflicting fork until its lockouts expire',
+        'When ≥2/3 of stake has voted for a slot: optimistic confirmation',
+        'When the tower\'s 31-deep stack is full, the oldest vote pops off and becomes the validator\'s rooted point',
+        'Finalized = rooted and ≥2/3 of stake is also rooted there',
       ]
     },
-    whyItMatters: 'Tower BFT is Solana\'s consensus mechanism. It combines PoS voting with PoH timestamps for fast, deterministic finality.',
+    whyItMatters: 'Lockout doubling means recent history can still flip, but anything deeper than a few confirmations would require waiting years — that gradient IS finality.',
     metrics: [
-      'Initial lockout: 2 slots (~800ms)',
-      'Max lockout: 2^32 slots (~54 years)',
-      'Supermajority: ≥2/3 stake',
-      'Votes per day: ~216,000',
-      'Vote cost: ~2-3 SOL per epoch',
+      'Initial lockout: 2 slots (~800ms), ×2 per consecutive confirmation',
+      'Stack depth: 31 votes max (oldest becomes root)',
+      'Optimistic confirmation: ≥2/3 stake voted (VOTE_THRESHOLD_SIZE)',
+      'Switch-fork threshold: 38% of stake required to abandon a fork',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L48',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L70',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus.rs#L158',
+  ],
   subComponents: [
     {
       id: 'vote-tower',
       name: 'Vote Tower',
       icon: '🗳️',
       detail: {
-        purpose: 'Sequential stack of votes with exponentially increasing lockouts.',
-        role: 'Each vote confirms a fork. Lockout doubles with each vote, making deep history irreversible.',
+        purpose: 'The validator\'s personal voting history — a stack where every vote doubles its commitment.',
+        role: 'Consecutive votes stack up; each new vote doubles the lockout of every vote below it.',
         howItWorks: {
-          title: 'Vote Tower Mechanics',
+          title: 'Lockout Doubling',
           steps: [
-            'Vote 1: lockout = 2 slots (~800ms)',
-            'Vote 2: lockout = 4 slots (~1.6s)',
-            'Vote 3: lockout = 8 slots (~3.2s)',
-            '...',
-            'Vote 32: lockout = 2^32 slots (~54 years)',
-            'Exponential growth makes deep history irreversible',
-            'Deque oldest vote when tower is full (32 votes)',
+            'Vote on slot N: locked for 2 slots',
+            'Vote again on a descendant: previous lockout doubles to 4, new vote locks 2',
+            'Third consecutive vote: lockouts run 8 / 4 / 2',
+            'In general the n-th consecutive vote is locked for 2ⁿ slots',
+            'A conflicting fork stays unvotable until all covering lockouts expire',
+            'At 31 stacked votes the tower is full: the oldest vote pops off and becomes the root',
           ]
         },
-        whyItMatters: 'Exponential lockout growth means the deeper a block is confirmed, the more economically infeasible it is to revert.',
-        metrics: ['Max tower depth: 32', 'Lockout growth: exponential (2^n)']
-      }
+        whyItMatters: 'Two confirmations cost seconds to revert; thirty would take decades. The exponential gradient lets the cluster finalize quickly while making attacks exponentially pricier.',
+        metrics: ['Stack depth: 31 (MAX_LOCKOUT_HISTORY)', 'n-th consecutive lockout: 2ⁿ slots']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L70',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L161',
+      ]
     },
     {
       id: 'fork-choice',
       name: 'Fork Choice Rule',
       icon: '🌲',
       detail: {
-        purpose: 'Determines which fork is the canonical chain when multiple competing forks exist.',
-        role: 'Heaviest Subtree Fork Choice (HSFC). Forks weighted by stake-weighted votes.',
+        purpose: 'Picks the canonical fork when competing versions of the next slot exist.',
+        role: 'Heaviest Subtree Fork Choice: forks are weighted by the stake that voted for them; voting itself is gated by this rule.',
         howItWorks: {
-          title: 'Fork Selection',
+          title: 'Fork Selection & Voting Gate',
           steps: [
-            'Each fork has a weight = sum of stake that has voted for it',
-            'Choose fork with highest weight (stake-weighted votes)',
-            'If equal weight: choose fork with more recent vote',
-            'Switching threshold: >38% of votes on alternative forks required',
-            'Minimum cluster commitment at depth 8: 50%+',
+            'Every fork\'s weight = total stake that has voted along it',
+            'Heaviest fork wins as the working canonical fork',
+            'Before any vote: lockout check (are we still locked elsewhere?),',
+            '…threshold check (has enough stake confirmed our target?),',
+            '…and propagation check (would our vote actually reach the cluster?)',
+            'Switching away needs 38% of stake committed to the alternative (switch proof)',
           ]
         },
-        whyItMatters: 'Fork choice ensures all honest validators eventually agree on the same chain. Critical for liveness.',
-        metrics: ['Switching threshold: >38%', 'Min commitment at depth 8: 50%+']
-      }
+        whyItMatters: 'Fork choice is what makes votes safe rather than reckless: the same rule that picks the chain also gates every single vote.',
+        metrics: ['Switch threshold: SWITCH_FORK_THRESHOLD = 0.38', 'Duplicate-threshold derived from it (1 − 0.38 − 0.1)']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus.rs#L158',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L129-L130',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L13-L15',
+      ]
     }
   ]
 }
