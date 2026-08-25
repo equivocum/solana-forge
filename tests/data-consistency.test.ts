@@ -41,6 +41,7 @@ describe('Data consistency', () => {
 
   it('corrected-model edges removed and required edges present (contract C-3/C-5)', () => {
     expect(connectionSet.has('sig-verify->status-cache')).toBe(false)
+    expect(connectionSet.has('tower-bft->epoch-schedule')).toBe(false)
     expect(connectionSet.has('svm-pipeline->poh-recording')).toBe(true)
     expect(connectionSet.has('blockstore->replay-stage')).toBe(true)
   })

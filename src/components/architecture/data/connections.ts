@@ -51,7 +51,6 @@ export const NETWORKING_CONNECTIONS: Connection[] = [
 
 // Consensus connections
 export const CONSENSUS_CONNECTIONS: Connection[] = [
-  { from: 'tower-bft', to: 'epoch-schedule', label: 'Leader rotation', type: 'control' },
   { from: 'poh', to: 'tower-bft', label: 'Timestamps', type: 'shared' },
   { from: 'tower-bft', to: 'replay-stage', label: 'Fork decision', type: 'control' },
 ]

@@ -159,33 +159,7 @@ export const GULF_STREAM: ArchitectureComponent = {
       'Outbound queue cap: 10,000 txs during congestion',
     ]
   },
-  subComponents: [
-    {
-      id: 'leader-schedule-lookup',
-      name: 'Leader Schedule Lookup',
-      icon: '📅',
-      detail: {
-        purpose: 'Determines which validators produce blocks for which slots.',
-        role: 'Stake-weighted random selection computed at epoch boundaries, known 2 epochs ahead.',
-        howItWorks: {
-          title: 'Leader Selection',
-          steps: [
-            'At epoch boundary, snapshot all validator stakes',
-            'Compute weighted random selection seeded by PoH tick count',
-            'Each leader assigned 4 consecutive slots (~1.6s)',
-            'Schedule distributed via Gossip to all validators',
-            'Deterministic: all validators compute same schedule independently',
-          ]
-        },
-        whyItMatters: 'Predictable leader schedule enables Gulf Stream forwarding. Stake-weighted selection ensures honest validators with more stake produce more blocks.',
-        metrics: [
-          'Epoch: 432,000 slots (~2-3 days)',
-          'Consecutive slots per leader: 4',
-          'Schedule known: 2 epochs ahead (~4-6 days)',
-        ]
-      }
-    }
-  ]
+  subComponents: []
 }
 
 export const GOSSIP: ArchitectureComponent = {
@@ -1557,23 +1531,61 @@ export const EPOCH_SCHEDULE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 3,
   detail: {
-    purpose: 'Defines time boundaries for leader rotation and stake updates.',
-    role: 'Epoch = 432,000 slots (~2-3 days). Leader schedule recomputed at epoch boundaries.',
+    purpose: 'Divides time into epochs and defines how leader slots are assigned within them.',
+    role: 'Pure scheduling math: derives the leader rotation deterministically from epoch stakes — independent of consensus voting.',
     howItWorks: {
-      title: 'Epoch Structure',
+      title: 'From Stakes to Leader Slots',
       steps: [
-        'Epoch = 432,000 slots',
-        'Slot duration: ~400ms',
-        'Epoch duration: ~2-3 days',
-        'Leader schedule recomputed at epoch boundaries',
-        'Stake distribution snapshots at epoch boundaries',
-        '2 epochs ahead: schedule is known',
+        'An epoch is 432,000 slots (~2 days at ~400ms per slot)',
+        'At each epoch boundary the validator stakes are snapshotted',
+        'Stakes are sorted and fed into a ChaCha RNG seeded by the epoch',
+        'Stake-weighted draws assign NUM_CONSECUTIVE_LEADER_SLOTS = 4 consecutive slots per pick',
+        'The schedule is computed one epoch ahead, so every validator knows all future leaders',
+        'It is cached in the LeaderScheduleCache and refreshed as roots advance',
+        'Consumers: PoH recorder (would_be_leader), shred signature verification, turbine trees, repair, forwarding',
       ]
     },
-    whyItMatters: 'Epoch boundaries are the coordination points for the entire cluster. All state transitions happen at epoch boundaries.',
-    metrics: ['Epoch: 432,000 slots (~2-3 days)', 'Schedule known: 2 epochs ahead']
+    whyItMatters: 'Because rotation is computed from a stake snapshot — not negotiated — every validator independently derives the identical schedule. Slot ownership is publicly predictable without any election traffic.',
+    metrics: [
+      'Consecutive slots per leader draw: 4',
+      'Computed: one epoch ahead',
+      'Epoch: 432,000 slots (~2 days)',
+    ]
   },
-  subComponents: []
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L20',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L44',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L60',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/leader_schedule_cache.rs#L44-L62',
+  ],
+  subComponents: [
+    {
+      id: 'leader-schedule-derivation',
+      name: 'Leader Schedule Derivation',
+      icon: '🎲',
+      detail: {
+        purpose: 'Shows exactly how stake weights become slot assignments.',
+        role: 'A deterministic sampling loop: same stakes + same epoch seed ⇒ byte-identical schedule on every validator.',
+        howItWorks: {
+          title: 'Derivation Algorithm',
+          steps: [
+            'Snapshot validator → stake pairs for the target epoch',
+            'Sort entries so iteration order is stable',
+            'Seed a ChaCha RNG with the epoch number',
+            'Draw a winner proportional to stake; that leader gets 4 consecutive slots',
+            'Repeat until the epoch\'s slots are fully assigned',
+            'No gossip needed to distribute it — everyone recomputes the same answer',
+          ]
+        },
+        whyItMatters: 'More stake ⇒ more leader turns, yet the process stays trustless: randomness is seeded deterministically rather than drawn from an unpredictable source.',
+        metrics: ['RNG: rand_chacha::ChaChaRng, seed = epoch']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L8',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L60',
+      ]
+    }
+  ]
 }
 
 // ═══════════════════════════════════════════════════════════════════
