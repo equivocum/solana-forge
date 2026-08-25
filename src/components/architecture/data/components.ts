@@ -310,23 +310,23 @@ export const SIG_VERIFY: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 1,
   detail: {
-    purpose: 'Validates Ed25519 signatures on incoming packets in parallel on CPU, and filters duplicate packets before they reach the Banking Stage.',
-    role: 'Second stage of TPU. CPU-parallel signature verification in fixed-size packet chunks, packet-level Bloom-filter deduplication, load shedding, and priority-floor coordination with the Banking Stage scheduler.',
+    purpose: 'Checks that every incoming transaction carries a valid Ed25519 signature before it consumes any further compute.',
+    role: 'Second stage of the TPU pipeline. Verifies signatures across all CPU cores in parallel and filters out duplicate packets.',
     howItWorks: {
       title: 'Signature Verification',
       steps: [
         'Packets received from Fetch stage',
-        'Dedup filter: Bloom-filter check keyed on the packet signature hash discards re-submitted packets (packet-level only — semantic duplicate/blockhash checks happen later, inside the Banking Stage)',
-        'Parallel Ed25519 verification across CPU cores in chunks of VERIFY_PACKET_CHUNK_SIZE = 128 packets',
-        'Invalid signatures flagged for discard (not dropped immediately)',
-        'Load shedding: discard excessive packets to prevent overload',
-        'SchedulerPriorityFloor is shared with the Banking Stage scheduler so vote traffic always verifies ahead of the floor',
+        'Each packet\'s transaction signature probes a Bloom filter — recently seen duplicates are dropped before verification work is spent',
+        'Surviving packets verified in batches of 128 (VERIFY_PACKET_CHUNK_SIZE) spread across all CPU cores',
+        'Invalid signatures flagged and their packets discarded',
+        'Load shedding discards excess packets under overload',
+        'A shared priority floor (SchedulerPriorityFloor) keeps consensus votes verifying ahead of ordinary traffic',
         'Verified packets passed to Banking Stage',
       ]
     },
-    whyItMatters: 'Signature verification is the most expensive step per-transaction. Verification runs CPU-parallel at this release; hardware-offload paths no longer exist in the codebase (audit finding F-01).',
+    whyItMatters: 'Signature verification dominates per-transaction cost. Chunked parallel batching across CPU cores is what lets one validator push tens of thousands of signatures per second.',
     metrics: [
-      'VERIFY_PACKET_CHUNK_SIZE: 128 packets per verification batch',
+      'VERIFY_PACKET_CHUNK_SIZE: 128 packets per batch',
       'Dedup filter: probabilistic Bloom filter over recent packet signatures',
     ]
   },
@@ -342,19 +342,19 @@ export const SIG_VERIFY: ArchitectureComponent = {
       name: 'Packet Deduplication',
       icon: '🔍',
       detail: {
-        purpose: 'Filters duplicate packets before expensive signature verification.',
-        role: 'Bloom filter (perf::Deduper) keyed on the transaction signature hash. Packet-level only: it cannot see whether a semantically identical transaction already entered a bank.',
+        purpose: 'Drops duplicate packets before signature verification work is wasted on them.',
+        role: 'A Bloom filter (perf::Deduper) keyed on the transaction signature hash remembers every recently seen packet.',
         howItWorks: {
           title: 'Dedup Logic',
           steps: [
             'Hash each packet\'s transaction signature',
-            'Probe the Bloom filter built over recently seen signatures',
-            'If definitely-new: pass to signature verification',
-            'If possibly-duplicate: discard the packet',
-            'Filter resets periodically so old entries age out',
+            'Probe the Bloom filter built over recent signatures',
+            'Signature never seen before → packet continues to verification',
+            'Signature already seen → packet discarded immediately',
+            'The filter resets periodically so entries age out',
           ]
         },
-        whyItMatters: 'Clients often re-submit identical packets; dropping them here saves signature work. Semantic duplicate protection (same signature already processed into a bank) happens later via the status cache consulted in Banking Stage consumption.',
+        whyItMatters: 'Clients often re-submit identical packets when they don\'t get a quick answer. Filtering them here is nearly free compared to verifying the same signatures again.',
         metrics: ['Dedup key: transaction signature hash']
       },
       refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/deduper.rs#L20'],
@@ -1191,21 +1191,26 @@ export const STATUS_CACHE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 2,
   detail: {
-    purpose: 'Deduplicates transactions by tracking recently processed transaction signatures.',
-    role: 'Prevents duplicate processing within a window. Located between SigVerify and Banking Stage.',
+    purpose: 'Remembers the outcome of recently processed transactions so nothing executes twice and every client gets an answer.',
+    role: 'A lookup table consulted while transactions are consumed in the Banking Stage, and by RPC when clients poll for results.',
     howItWorks: {
-      title: 'Deduplication',
+      title: 'Exactly-Once Processing',
       steps: [
-        'When transaction is processed, record its signature in status cache',
-        'When same signature arrives again, check cache',
-        'If found: discard (duplicate)',
-        'If not found: process normally',
-        'Cache entries expire after finalization window',
+        'Before executing, Banking Stage validates the transaction\'s recent blockhash and fee payer (check_fee_payer_unlocked)',
+        'A blockhash that has aged out of history means the transaction expired — it is rejected',
+        'When a transaction executes, its signature and result are recorded here',
+        'If the identical transaction arrives again, the recorded result short-circuits re-execution',
+        'RPC getSignatureStatuses reads this table to answer "did my transaction land?"',
+        'Entries expire once their slot is deeply finalized',
       ]
     },
-    whyItMatters: 'Prevents wasted compute on re-submitted transactions. Critical for DoS resistance.',
+    whyItMatters: 'Gives the chain exactly-once execution and gives clients instant feedback — the same structure serves both jobs.',
     metrics: ['Cache window: spans recent finalized slots']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L474',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+  ],
   subComponents: []
 }
 
