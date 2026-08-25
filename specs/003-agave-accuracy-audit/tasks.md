@@ -23,7 +23,7 @@ Single project at repository root: `src/components/architecture/data/`, `tests/`
 
 **Purpose**: Confirm clean starting point before any mutation.
 
-- [ ] T001 Verify Git Flow prerequisites: issue [#8](https://github.com/equivocum/solana-forge/issues/8) is open and branch `feature/8-agave-accuracy-audit` (renamed from `003-agave-accuracy-audit`) is checked out; then run baseline verification gates: `pnpm test` and `npx tsc --noEmit` must both pass with zero failures before any file is modified
+- [x] T001 Verify Git Flow prerequisites: issue [#8](https://github.com/equivocum/solana-forge/issues/8) is open and branch `feature/8-agave-accuracy-audit` (renamed from `003-agave-accuracy-audit`) is checked out; then run baseline verification gates: `pnpm test` and `npx tsc --noEmit` must both pass with zero failures before any file is modified
 
 **Checkpoint**: Baseline green — audit work may begin.
 
