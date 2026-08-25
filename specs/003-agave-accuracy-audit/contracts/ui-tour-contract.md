@@ -29,3 +29,12 @@ Every step displays, at minimum:
 
 - `pnpm test` green; `npx tsc --noEmit` clean after every applied change (FR-022).
 - Existing annotation persistence/storage services untouched; no IndexedDB schema changes.
+
+## T-6. Simplification labeling (FR-004 mechanism)
+
+Claims retained without direct pinned-source proof (educational simplifications) MUST be marked so learners never mistake them for verified mechanics:
+
+- Convention: append the literal suffix `(simplification)` to the affected claim's WHY badge text.
+- ZoomPanel renders any detail whose source text contains this suffix as an italic note line directly beneath the claim.
+- Every such labeled claim must have a corresponding report.md row whose classification is `misleading-simplification` and whose disposition explains why precision was traded for clarity.
+- Enforcement: manual during content review; no new annotation type is introduced (keeps the 6-badge system stable).
