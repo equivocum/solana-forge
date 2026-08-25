@@ -202,14 +202,79 @@ export const SIMULATION_STEPS: SimulationStep[] = [
   },
   {
     id: 'step-15',
-    componentId: 'accounts-db',
-    title: '15. State deltas — persistence comes later',
+    componentId: 'tower-bft',
+    title: '15. Fork choice gates the vote',
     description:
-      'Executed transactions live as deltas in bank state immediately. Writing them durably to AccountsDB is asynchronous: consolidation happens around freeze and root boundaries.',
+      'Before voting on the freshly replayed bank, the tower consults fork choice: are we locked elsewhere? Is our target confirmed enough? Would switching forks require a switch proof?',
     annotation: [
-      { type: 'STAGE', content: 'PERSIST — async write-back, never inline with execution', sourceRef: ref('core/src/validator.rs', 'L1045') },
-      { type: 'WHY', content: 'Decoupling storage from execution keeps block production and replay fast; the background service consolidates at root advancement.', sourceRef: ref('core/src/validator.rs', 'L1045') },
+      { type: 'STAGE', content: 'CONSENSUS — pre-vote gating', sourceRef: ref('core/src/replay_stage.rs', 'L13-L15') },
+      { type: 'DECISION', content: 'select_vote_and_reset_forks: inputs = lockouts, thresholds, propagation check; outcome = vote / wait / switch-proof.', sourceRef: ref('core/src/replay_stage.rs', 'L13-L15') },
+      { type: 'WHY', content: 'Voting carelessly could lock this validator onto a losing fork for exponentially long — the gate makes every vote deliberate.', sourceRef: ref('core/src/consensus.rs', 'L158') },
+    ],
+    duration: 3600,
+  },
+  {
+    id: 'step-16',
+    componentId: 'voting-service',
+    title: '16. Our vote goes out',
+    description:
+      'The decided vote is persisted to tower storage first — a crash must never lose lockouts — then published on two paths at once.',
+    annotation: [
+      { type: 'STAGE', content: 'CONSENSUS — outbound vote', sourceRef: ref('core/src/tvu.rs', 'L121-L122') },
+      { type: 'HOW', content: 'Persist tower → sign → push into gossip AND submit toward upcoming leaders via the TPU-vote lane.', sourceRef: ref('core/src/tvu.rs', 'L121-L122') },
+      { type: 'WHY', content: 'Redundant egress means cluster confirmation accounting starts even if one network path is degraded.', sourceRef: ref('core/src/tvu.rs', 'L121-L122') },
+    ],
+    duration: 3000,
+  },
+  {
+    id: 'step-17',
+    componentId: 'gossip',
+    title: '17. Votes ride the gossip mesh',
+    description:
+      'Gossip propagates votes peer-to-peer across the cluster. Every validator\'s listener will see every vote within moments — no leader involvement required.',
+    annotation: [
+      { type: 'STAGE', content: 'CONSENSUS — vote propagation', sourceRef: ref('core/src/cluster_info_vote_listener.rs', 'L510') },
+      { type: 'WHY', content: 'Confirmation must be possible even for slots we never receive as blocks — gossip closes that gap.', sourceRef: ref('core/src/cluster_info_vote_listener.rs', 'L529') },
+    ],
+    duration: 2800,
+  },
+  {
+    id: 'step-18',
+    componentId: 'cluster-info-vote-listener',
+    title: '18. The cluster\'s votes return',
+    description:
+      'Other validators\' votes arrive over gossip (and inside received blocks). Each is CPU-verified and tracked per slot until thresholds fire.',
+    annotation: [
+      { type: 'STAGE', content: 'CONSENSUS — inbound vote processing', sourceRef: ref('core/src/cluster_info_vote_listener.rs', 'L128-L142') },
+      { type: 'DECISION', content: 'Optimistic confirmation fires when tracked stake on a slot passes 2/3 (VOTE_THRESHOLD_SIZE).', sourceRef: ref('runtime/src/commitment.rs', 'L9') },
+      { type: 'HOW', content: 'When we are leader, verified gossip votes are injected into Banking Stage\'s vote lane so they land in our blocks too.', sourceRef: ref('core/src/cluster_info_vote_listener.rs', 'L73') },
     ],
     duration: 3400,
+  },
+  {
+    id: 'step-19',
+    componentId: 'tower-bft',
+    title: '19. Roots advance — finality arrives',
+    description:
+      'With confirmations stacking, the 31-deep tower fills: the oldest vote pops off and becomes the root. Forks below the root are pruned away permanently.',
+    annotation: [
+      { type: 'STAGE', content: 'FINALIZE — root advancement and fork pruning', sourceRef: ref('core/src/consensus/tower_vote_state.rs', 'L48') },
+      { type: 'DECISION', content: 'Root = oldest popped vote once the stack is full; lockout doubling (2ⁿ) is what makes deeper history uncontestable.', sourceRef: ref('core/src/consensus/tower_vote_state.rs', 'L70') },
+      { type: 'WHY', content: 'Finalized means rooted plus ≥2/3 of stake rooted — reverting would require rewriting years of doubled lockouts.', sourceRef: ref('runtime/src/commitment.rs', 'L9') },
+    ],
+    duration: 3600,
+  },
+  {
+    id: 'step-20',
+    componentId: 'accounts-db',
+    title: '20. Consolidation completes — asynchronously',
+    description:
+      'Root advancement triggers background consolidation of account state. Notice what never happened: no step executed transactions into disk synchronously.',
+    annotation: [
+      { type: 'STAGE', content: 'PERSIST — asynchronous write-back after finality', sourceRef: ref('core/src/validator.rs', 'L1045') },
+      { type: 'WHY', content: 'Execution, recording, broadcast, validation, and voting all stayed fast because durable storage was always decoupled — consolidated by a background service around freeze/root boundaries.', sourceRef: ref('core/src/validator.rs', 'L1045') },
+      { type: 'REF', content: 'Full journey complete: submission → execution → PoH → shreds → replay → votes → root → consolidated state.', sourceRef: ref('core/src/validator.rs', 'L688') },
+    ],
+    duration: 3800,
   },
 ]

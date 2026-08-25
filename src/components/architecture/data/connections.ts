@@ -39,6 +39,7 @@ export const CROSS_PIPELINE: Connection[] = [
   { from: 'broadcast', to: 'blockstore', label: 'Store shreds', type: 'data' },
   { from: 'blockstore', to: 'replay-stage', label: 'Completed slots', type: 'data' },
   { from: 'banking-stage', to: 'status-cache', label: 'Status checks', type: 'control' },
+  { from: 'tower-bft', to: 'accounts-db', label: 'Root advancement → async consolidation', type: 'control' },
 ]
 
 // Networking connections
@@ -53,6 +54,8 @@ export const NETWORKING_CONNECTIONS: Connection[] = [
 export const CONSENSUS_CONNECTIONS: Connection[] = [
   { from: 'poh', to: 'tower-bft', label: 'Timestamps', type: 'shared' },
   { from: 'tower-bft', to: 'replay-stage', label: 'Fork decision', type: 'control' },
+  { from: 'svm-pipeline', to: 'tower-bft', label: 'Recomputed results', type: 'data' },
+  { from: 'cluster-info-vote-listener', to: 'tower-bft', label: 'Confirmation signals', type: 'control' },
 ]
 
 // Vote return loop: how votes travel back into the cluster
@@ -61,6 +64,7 @@ export const CONSENSUS_CONNECTIONS: Connection[] = [
 // into Banking Stage when we are (or will be) leader.
 export const VOTE_FLOW: Connection[] = [
   { from: 'replay-stage', to: 'voting-service', label: 'Vote ops', type: 'control' },
+  { from: 'tower-bft', to: 'voting-service', label: 'Gated vote ops', type: 'control' },
   { from: 'voting-service', to: 'gossip', label: 'Publish votes', type: 'data' },
   { from: 'gossip', to: 'cluster-info-vote-listener', label: 'Cluster votes', type: 'data' },
   { from: 'cluster-info-vote-listener', to: 'banking-stage', label: 'Verified gossip votes', type: 'data' },
@@ -78,8 +82,7 @@ export const ALL_CONNECTIONS: Connection[] = [
 // Transaction lifecycle path (for animated bubble)
 // Corrected per Agave v4.2.1: duplicate/blockhash checks live in banking consumption,
 // execution is a library invoked by both paths, PoH recording happens immediately after
-// execution, and durable persistence is asynchronous (final stop).
-// Vote-return loop and finalization steps extend this path in Phase 4 (US2, T015/T016).
+// execution, votes return via the VOTE_FLOW loop, and durable persistence is asynchronous.
 export const TX_LIFECYCLE_PATH = [
   'quic-streamer',
   'tpu-fetch',
@@ -95,5 +98,10 @@ export const TX_LIFECYCLE_PATH = [
   'blockstore',
   'replay-stage',
   'svm-pipeline', // validation side: replay executes through the same runtime library
-  'accounts-db', // executed deltas land here; durable consolidation is asynchronous
+  'tower-bft', // fork choice gates every vote
+  'voting-service', // our vote goes out
+  'gossip', // and travels the cluster mesh
+  'cluster-info-vote-listener', // other validators' votes return here
+  'tower-bft', // thresholds met → root advancement / fork pruning
+  'accounts-db', // async consolidation completes the journey
 ]
