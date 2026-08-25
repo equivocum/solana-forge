@@ -60,26 +60,30 @@ export const QUIC_STREAMER: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'Receives incoming transactions from clients and other validators over QUIC protocol with TLS 1.3 encryption.',
-    role: 'Entry point for all new transactions into the TPU pipeline. Replaced raw UDP as the primary transport.',
+    purpose: 'Terminates the validator\'s QUIC connections — every transaction and vote enters through one of its three streamer endpoints.',
+    role: 'Three dedicated endpoints: solQuicTpu for regular traffic, solQuicTpuFwd for one-hop forwards, solQuicTVo for votes — each with its own admission policy.',
     howItWorks: {
       title: 'QUIC Connection Flow',
       steps: [
-        'Client establishes QUIC connection with TLS 1.3 (ALPN: solana-tpu)',
-        'Each transaction sent as a separate unidirectional QUIC stream',
-        'SWQoS allocates 80% capacity to staked validators, 20% to unstaked',
-        'Rate limiting applied per connection via STREAM_STOP_CODE_THROTTLING',
-        'Packets coalesced and buffered for SigVerify stage',
+        'Peers establish QUIC over TLS 1.3 (ALPN "solana-tpu"); the certificate binds the connection to a validator identity',
+        'Each transaction arrives on its own unidirectional QUIC stream',
+        'solQuicTVo runs a simple-QoS server dedicated to votes',
+        'solQuicTpu and solQuicTpuFwd run stake-weighted QoS servers: concurrent stream capacity scales with sender stake',
+        'Under pressure, admission control sheds unstaked senders before staked ones',
+        'Accepted packets are buffered and handed to Fetch Stage',
       ]
     },
-    whyItMatters: 'QUIC provides flow control, connection migration, and 0-RTT connection establishment. TLS 1.3 encrypts transaction data in transit. Replaced raw UDP which had no congestion control.',
+    whyItMatters: 'Splitting endpoints means vote traffic never competes with transaction floods for admission, while stake-weighting rewards investment with reliable delivery.',
     metrics: [
-      'Max transaction payload: 1,232 bytes (IPv6 MTU)',
-      'Default ports: 9001 (TPU-UDP), 9007 (TPU-QUIC)',
-      'Stake-weighted limits: 80% staked, 20% unstaked',
-      'Throttling window: 100ms',
+      'Endpoints: solQuicTpu / solQuicTpuFwd / solQuicTVo',
+      'Admission: stake-weighted (votes: simple QoS)',
+      'One transaction per QUIC stream',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L220-L265',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L56',
+  ],
   subComponents: [
     {
       id: 'quic-tls',
@@ -107,26 +111,22 @@ export const QUIC_STREAMER: ArchitectureComponent = {
       name: 'Stake-Weighted QoS',
       icon: '⚖️',
       detail: {
-        purpose: 'Prioritizes network traffic from staked validators over unstaked nodes.',
-        role: 'Allocates bandwidth proportionally to stake. Higher-staked validators get more concurrent streams.',
+        purpose: 'Decides who gets to open streams when the endpoint is busy.',
+        role: 'Tracks live connection load and admits new streams in proportion to the sender\'s stake share; unstaked senders are shed first under saturation.',
         howItWorks: {
           title: 'SWQoS Allocation',
           steps: [
-            'Track connection load via stream_load_ema (Exponential Moving Average)',
-            'Calculate available capacity: (max_load² / current_load) × (stake / total_stake)',
-            'Staked connections: up to 80% of total capacity',
-            'Unstaked connections: up to 20% of total capacity',
-            'Evict oldest 10% of unstaked connections when capacity full',
+            'Monitor active stream load as an exponential moving average',
+            'Compute remaining capacity from the load target',
+            'Divide available capacity across senders by stake weight',
+            'Admit or reject each incoming stream against that budget',
+            'When full, oldest unstaked connections are evicted before any staked one',
           ]
         },
-        whyItMatters: 'Prevents DoS from unstaked nodes. Ensures honest validators with stake always have bandwidth. Critical for network stability.',
-        metrics: [
-          'Staked allocation: 80%',
-          'Unstaked allocation: 20%',
-          'Minimum stake for staked treatment: 0.002% of total',
-          'Throttling interval: 100ms',
-        ]
-      }
+        whyItMatters: 'Bandwidth is a shared resource; weighting by stake makes spam expensive for the spammer and cheap for the network.',
+        metrics: ['Allocation ∝ stake share', 'Unstaked evicted first']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L244-L265']
     },
   ]
 }
