@@ -89,7 +89,7 @@ Legend: ✅ anchor verified against tag content. ⏳ = finalize during the ownin
 | F-18 | cluster-info-vote-listener | (absent) | missing | NEW consensus node: polls gossip votes, verifies, tracks thresholds, feeds verified votes toward tower/banking | — | W-34–W-36 | pending |
 | F-19 | voting-service | (absent) | missing | NEW consensus node: persists tower, publishes own votes outward | — | W-03, W-23(voting) | pending |
 | F-20 | accounts-db, bank | Execution writes durable state synchronously | misleading-simplification | Execution writes deltas to bank state; persistence asynchronous — freeze/root consolidation via background service | FR-008 rationale | W-01 (ABS spawn), ⏳ ABS internals anchor in T022 | pending |
-| F-21 | TX_LIFECYCLE_PATH | Ordering: dedup/blockhash in sig-verify; execution commits before ledger clock | incorrect | Corrected data-flow order per data-model transitions; tests updated same commit | FR-005..FR-007 | W-04–W-19 sequence | pending |
+| F-21 | TX_LIFECYCLE_PATH | Ordering: dedup/blockhash in sig-verify; execution commits before ledger clock | incorrect | Corrected data-flow order per data-model transitions; tests updated same commit | FR-005..FR-007 | W-04–W-19 sequence | corrected-in-app (T009/T010; vote-loop extension lands T015/T016) |
 
 *(Rows F-01…F-21 seeded by T003; dispositions land with their correcting commits.)*
 

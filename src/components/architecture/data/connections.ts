@@ -13,8 +13,9 @@ export const TPU_FLOW: Connection[] = [
   { from: 'quic-streamer', to: 'tpu-fetch', label: 'Packets', type: 'data' },
   { from: 'tpu-fetch', to: 'sig-verify', label: 'Raw txs', type: 'data' },
   { from: 'sig-verify', to: 'banking-stage', label: 'Verified txs', type: 'data' },
-  { from: 'banking-stage', to: 'poh-recording', label: 'Entries', type: 'data' },
-  { from: 'poh-recording', to: 'broadcast', label: 'Timestamped entries', type: 'data' },
+  { from: 'banking-stage', to: 'svm-pipeline', label: 'Scheduled batches', type: 'data' },
+  { from: 'svm-pipeline', to: 'poh-recording', label: 'Executed batches', type: 'data' },
+  { from: 'poh-recording', to: 'broadcast', label: 'Recorded entries', type: 'data' },
   { from: 'broadcast', to: 'turbine', label: 'Shreds', type: 'data' },
 ]
 
@@ -36,8 +37,8 @@ export const CROSS_PIPELINE: Connection[] = [
   { from: 'replay-stage', to: 'accounts-db', label: 'Read/write accounts', type: 'data' },
   { from: 'window-service', to: 'blockstore', label: 'Store shreds', type: 'data' },
   { from: 'broadcast', to: 'blockstore', label: 'Store shreds', type: 'data' },
-  { from: 'banking-stage', to: 'status-cache', label: 'Dedup check', type: 'control' },
-  { from: 'sig-verify', to: 'status-cache', label: 'Dedup check', type: 'control' },
+  { from: 'blockstore', to: 'replay-stage', label: 'Completed slots', type: 'data' },
+  { from: 'banking-stage', to: 'status-cache', label: 'Status checks', type: 'control' },
 ]
 
 // Networking connections
@@ -64,16 +65,16 @@ export const ALL_CONNECTIONS: Connection[] = [
 ]
 
 // Transaction lifecycle path (for animated bubble)
-// Follows the complete Solana transaction flow: Leader TPU → Turbine → Validator TVU
-// accounts-db appears twice: once for leader commit (after SVM), once for validator commit (after replay)
+// Corrected per Agave v4.2.1: duplicate/blockhash checks live in banking consumption,
+// execution is a library invoked by both paths, PoH recording happens immediately after
+// execution, and durable persistence is asynchronous (final stop).
+// Vote-return loop and finalization steps extend this path in Phase 4 (US2, T015/T016).
 export const TX_LIFECYCLE_PATH = [
   'quic-streamer',
   'tpu-fetch',
   'sig-verify',
-  'status-cache',
   'banking-stage',
   'svm-pipeline',
-  'accounts-db',
   'poh-recording',
   'broadcast',
   'turbine',
@@ -82,7 +83,6 @@ export const TX_LIFECYCLE_PATH = [
   'window-service',
   'blockstore',
   'replay-stage',
-  'accounts-db',
-  'tower-bft',
-  'accounts-db',
+  'svm-pipeline', // validation side: replay executes through the same runtime library
+  'accounts-db', // executed deltas land here; durable consolidation is asynchronous
 ]
