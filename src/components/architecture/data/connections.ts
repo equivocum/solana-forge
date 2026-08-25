@@ -55,12 +55,24 @@ export const CONSENSUS_CONNECTIONS: Connection[] = [
   { from: 'tower-bft', to: 'replay-stage', label: 'Fork decision', type: 'control' },
 ]
 
+// Vote return loop: how votes travel back into the cluster
+// replay generates vote ops → VotingService publishes outward → votes return via
+// gossip → ClusterInfoVoteListener verifies them and feeds verified gossip votes
+// into Banking Stage when we are (or will be) leader.
+export const VOTE_FLOW: Connection[] = [
+  { from: 'replay-stage', to: 'voting-service', label: 'Vote ops', type: 'control' },
+  { from: 'voting-service', to: 'gossip', label: 'Publish votes', type: 'data' },
+  { from: 'gossip', to: 'cluster-info-vote-listener', label: 'Cluster votes', type: 'data' },
+  { from: 'cluster-info-vote-listener', to: 'banking-stage', label: 'Verified gossip votes', type: 'data' },
+]
+
 export const ALL_CONNECTIONS: Connection[] = [
   ...TPU_FLOW,
   ...TVU_FLOW,
   ...CROSS_PIPELINE,
   ...NETWORKING_CONNECTIONS,
   ...CONSENSUS_CONNECTIONS,
+  ...VOTE_FLOW,
 ]
 
 // Transaction lifecycle path (for animated bubble)

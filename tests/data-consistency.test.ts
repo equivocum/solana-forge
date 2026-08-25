@@ -3,6 +3,7 @@ import { SIMULATION_STEPS } from '../src/components/architecture/data/simulation
 import {
   TX_LIFECYCLE_PATH,
   ALL_CONNECTIONS,
+  VOTE_FLOW,
 } from '../src/components/architecture/data/connections'
 import { ALL_COMPONENTS } from '../src/components/architecture/data/components'
 
@@ -49,5 +50,14 @@ describe('Data consistency', () => {
   it('lifecycle path starts at ingress and ends at async persistence home (C-4)', () => {
     expect(TX_LIFECYCLE_PATH[0]).toBe('quic-streamer')
     expect(TX_LIFECYCLE_PATH[TX_LIFECYCLE_PATH.length - 1]).toBe('accounts-db')
+  })
+
+  it('VOTE_FLOW is non-empty and included in ALL_CONNECTIONS (contract C-3/C-5)', () => {
+    expect(VOTE_FLOW.length).toBeGreaterThan(0)
+    VOTE_FLOW.forEach(edge => {
+      expect(
+        ALL_CONNECTIONS.some(c => c.from === edge.from && c.to === edge.to && c.label === edge.label)
+      ).toBe(true)
+    })
   })
 })
