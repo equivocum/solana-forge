@@ -25,6 +25,7 @@ export interface SubComponent {
   icon: string
   detail: ComponentDetail
   internals?: InternalDetail[]
+  refs?: string[]     // Pinned-release citation permalinks (grammar: contract C-1)
 }
 
 export interface InternalDetail {
@@ -43,6 +44,7 @@ export interface ArchitectureComponent {
   position: number    // Order in pipeline (for layout)
   detail: ComponentDetail
   subComponents: SubComponent[]
+  refs?: string[]     // Pinned-release citation permalinks (grammar: contract C-1)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -308,46 +310,54 @@ export const SIG_VERIFY: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 1,
   detail: {
-    purpose: 'Validates Ed25519 signatures on incoming transactions in parallel, and deduplicates packets.',
-    role: 'Second stage of TPU. Parallel signature verification (GPU or CPU with AVX512), deduplication, and load shedding.',
+    purpose: 'Validates Ed25519 signatures on incoming packets in parallel on CPU, and filters duplicate packets before they reach the Banking Stage.',
+    role: 'Second stage of TPU. CPU-parallel signature verification in fixed-size packet chunks, packet-level Bloom-filter deduplication, load shedding, and priority-floor coordination with the Banking Stage scheduler.',
     howItWorks: {
       title: 'Signature Verification',
       steps: [
         'Packets received from Fetch stage',
-        'Deduplication: remove duplicate packets before signature checking',
-        'Parallel Ed25519 verification across multiple cores/GPU',
+        'Dedup filter: Bloom-filter check keyed on the packet signature hash discards re-submitted packets (packet-level only — semantic duplicate/blockhash checks happen later, inside the Banking Stage)',
+        'Parallel Ed25519 verification across CPU cores in chunks of VERIFY_PACKET_CHUNK_SIZE = 128 packets',
         'Invalid signatures flagged for discard (not dropped immediately)',
         'Load shedding: discard excessive packets to prevent overload',
+        'SchedulerPriorityFloor is shared with the Banking Stage scheduler so vote traffic always verifies ahead of the floor',
         'Verified packets passed to Banking Stage',
       ]
     },
-    whyItMatters: 'Signature verification is the most expensive step per-transaction. Parallelizing it across GPU/AVX512 is critical for throughput.',
+    whyItMatters: 'Signature verification is the most expensive step per-transaction. Verification runs CPU-parallel at this release; hardware-offload paths no longer exist in the codebase (audit finding F-01).',
     metrics: [
-      'Signature cost: 720 CUs per Ed25519',
-      'Ed25519 verify: 2,280 CUs',
-      'Firedancer: 1M sigs/sec on single FPGA',
+      'VERIFY_PACKET_CHUNK_SIZE: 128 packets per verification batch',
+      'Dedup filter: probabilistic Bloom filter over recent packet signatures',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/sigverify.rs#L15',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L284',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/banking-stage-ingress-types/src/lib.rs#L20',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/deduper.rs#L20',
+  ],
   subComponents: [
     {
       id: 'dedup',
-      name: 'Deduplication',
+      name: 'Packet Deduplication',
       icon: '🔍',
       detail: {
-        purpose: 'Removes duplicate transactions before expensive signature verification.',
-        role: 'Uses transaction signature as dedup key. Prevents wasting compute on re-submitted transactions.',
+        purpose: 'Filters duplicate packets before expensive signature verification.',
+        role: 'Bloom filter (perf::Deduper) keyed on the transaction signature hash. Packet-level only: it cannot see whether a semantically identical transaction already entered a bank.',
         howItWorks: {
           title: 'Dedup Logic',
           steps: [
-            'Hash each transaction signature',
-            'Check against recent transaction cache',
-            'If duplicate: discard packet',
-            'If new: pass to signature verification',
+            'Hash each packet\'s transaction signature',
+            'Probe the Bloom filter built over recently seen signatures',
+            'If definitely-new: pass to signature verification',
+            'If possibly-duplicate: discard the packet',
+            'Filter resets periodically so old entries age out',
           ]
         },
-        whyItMatters: 'Clients often re-submit transactions. Dedup saves ~2,280 CUs per duplicate.',
-        metrics: ['Dedup key: transaction signature (64 bytes)']
-      }
+        whyItMatters: 'Clients often re-submit identical packets; dropping them here saves signature work. Semantic duplicate protection (same signature already processed into a bank) happens later via the status cache consulted in Banking Stage consumption.',
+        metrics: ['Dedup key: transaction signature hash']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/deduper.rs#L20'],
     }
   ]
 }
