@@ -44,6 +44,7 @@ export const CROSS_PIPELINE: Connection[] = [
 
 // Networking connections
 export const NETWORKING_CONNECTIONS: Connection[] = [
+  { from: 'rpc-api', to: 'quic-streamer', label: 'Push toward leaders', type: 'data' },
   { from: 'gossip', to: 'turbine', label: 'Peer info', type: 'shared' },
   { from: 'gossip', to: 'tower-bft', label: 'Cluster info', type: 'shared' },
   { from: 'repair', to: 'window-service', label: 'Missing shreds', type: 'data' },
@@ -84,6 +85,7 @@ export const ALL_CONNECTIONS: Connection[] = [
 // execution is a library invoked by both paths, PoH recording happens immediately after
 // execution, votes return via the VOTE_FLOW loop, and durable persistence is asynchronous.
 export const TX_LIFECYCLE_PATH = [
+  'rpc-api', // client-facing submission entry (JSON-RPC → SendTransactionService)
   'quic-streamer',
   'tpu-fetch',
   'sig-verify',

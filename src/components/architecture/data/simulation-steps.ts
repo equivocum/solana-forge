@@ -20,15 +20,28 @@ const ref = (path: string, line: string) =>
   `https://github.com/anza-xyz/agave/blob/v4.2.1/${path}#${line}`
 
 export const SIMULATION_STEPS: SimulationStep[] = [
+  {
+    id: 'step-1',
+    componentId: 'rpc-api',
+    title: '1. Submission: client → RPC',
+    description:
+      'Wallets never talk to validators directly. They send the signed transaction to an RPC node\'s JSON-RPC API, which takes over delivery.',
+    annotation: [
+      { type: 'STAGE', content: 'SUBMIT — public API entry point', sourceRef: ref('core/src/validator.rs', 'L1303') },
+      { type: 'HOW', content: 'SendTransactionService resolves upcoming leaders from the schedule and pushes via QUIC.', sourceRef: ref('send-transaction-service/src/send_transaction_service.rs', 'L60') },
+      { type: 'WHY', content: 'Client→RPC→Validator separation keeps public traffic off consensus hardware.', sourceRef: ref('core/src/validator.rs', 'L1303') },
+    ],
+    duration: 3000,
+  },
   // ═══════════════════════════════════════════════════════════════
   // LEADER PATH (TPU) — submission to broadcast
   // ═══════════════════════════════════════════════════════════════
   {
-    id: 'step-1',
+    id: 'step-2',
     componentId: 'quic-streamer',
-    title: '1. Transaction arrives over QUIC',
+    title: '2. Transaction arrives over QUIC',
     description:
-      'A client sends its signed transaction over QUIC. Validators expose three streamer endpoints — regular TPU traffic, forwarded traffic, and votes — each admitted under different quality-of-service rules.',
+      'The RPC service forwards the signed transaction over QUIC to a validator. Three streamer endpoints exist — regular TPU traffic, forwarded traffic, and votes — each admitted under different quality-of-service rules.',
     annotation: [
       { type: 'STAGE', content: 'INGRESS — encrypted QUIC streams terminate at the validator\'s endpoints', sourceRef: ref('core/src/tpu.rs', 'L220-L265') },
       { type: 'HOW', content: 'solQuicTpu and solQuicTpuFwd use stake-weighted QoS servers; solQuicTVo uses simple QoS for votes.', sourceRef: ref('core/src/tpu.rs', 'L244-L265') },
@@ -37,9 +50,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3200,
   },
   {
-    id: 'step-2',
+    id: 'step-3',
     componentId: 'tpu-fetch',
-    title: '2. Fetch Stage gathers packets',
+    title: '3. Fetch Stage gathers packets',
     description:
       'Packets from all endpoints are pulled into unified channels and prepared for verification. Votes travel in their own lane from the very start.',
     annotation: [
@@ -49,9 +62,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2600,
   },
   {
-    id: 'step-3',
+    id: 'step-4',
     componentId: 'sig-verify',
-    title: '3. Signatures verified on CPU',
+    title: '4. Signatures verified on CPU',
     description:
       'Every packet\'s Ed25519 signature is checked in parallel across CPU cores, 128 packets per batch. A Bloom filter drops duplicate packets before work is wasted.',
     annotation: [
@@ -62,9 +75,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3000,
   },
   {
-    id: 'step-4',
+    id: 'step-5',
     componentId: 'banking-stage',
-    title: '4. Banking Stage schedules the work',
+    title: '5. Banking Stage schedules the work',
     description:
       'The scheduler orders transactions by fee and compute-unit price, groups conflicting ones into batches, and dispatches them to consume-workers. A dedicated worker handles votes.',
     annotation: [
@@ -75,9 +88,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3400,
   },
   {
-    id: 'step-5',
+    id: 'step-6',
     componentId: 'svm-pipeline',
-    title: '5. The runtime executes the batch',
+    title: '6. The runtime executes the batch',
     description:
       'Consume-workers call the SVM library: accounts are loaded, instructions run (native Rust or sBPF programs), and results apply to bank state. CPI nests up to 5 frames deep.',
     annotation: [
@@ -88,9 +101,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3400,
   },
   {
-    id: 'step-6',
+    id: 'step-7',
     componentId: 'poh-recording',
-    title: '6. Recorded into Proof of History immediately',
+    title: '7. Recorded into Proof of History immediately',
     description:
       'The moment a batch finishes executing, it is folded into the SHA-256 chain: new_hash = SHA-256(previous_hash ‖ batch). Ticks keep ticking between batches; nothing waits for storage.',
     annotation: [
@@ -101,9 +114,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3600,
   },
   {
-    id: 'step-7',
+    id: 'step-8',
     componentId: 'broadcast',
-    title: '7. Broadcast shreds the slot',
+    title: '8. Broadcast shreds the slot',
     description:
       'Completed entries leave the leader as erasure-coded shreds: 32 data + 32 coding shreds per FEC set, each carrying a Merkle proof signed by the leader.',
     annotation: [
@@ -116,9 +129,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
   // VALIDATION PATH (TVU) — receiving and replaying
   // ═══════════════════════════════════════════════════════════════
   {
-    id: 'step-8',
+    id: 'step-9',
     componentId: 'turbine',
-    title: '8. Turbine fans shreds out cluster-wide',
+    title: '9. Turbine fans shreds out cluster-wide',
     description:
       'Shreds travel down stake-weighted distribution trees so a single leader transmission reaches every validator in a few hops instead of thousands of direct sends.',
     annotation: [
@@ -128,9 +141,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2800,
   },
   {
-    id: 'step-9',
+    id: 'step-10',
     componentId: 'shred-fetch',
-    title: '9. Receiving validators collect shreds',
+    title: '10. Receiving validators collect shreds',
     description:
       'The ShredFetchStage listens on turbine and repair sockets, collecting data shreds and coding shreds into reassembly buffers.',
     annotation: [
@@ -140,9 +153,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2600,
   },
   {
-    id: 'step-10',
+    id: 'step-11',
     componentId: 'shred-sig-verify',
-    title: '10. Shred signatures checked against the schedule',
+    title: '11. Shred signatures checked against the schedule',
     description:
       'Each shred carries the leader\'s signature over its FEC-set Merkle root. Receivers resolve who the slot\'s scheduled leader was and verify accordingly.',
     annotation: [
@@ -152,9 +165,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2800,
   },
   {
-    id: 'step-11',
+    id: 'step-12',
     componentId: 'window-service',
-    title: '11. Window Service dedups, recovers, stores',
+    title: '12. Window Service dedups, recovers, stores',
     description:
       'Duplicate shreds are filtered; missing shreds are reconstructed from coding shreds and even retransmitted; conflicting Merkle roots are flagged as duplicate-slot evidence.',
     annotation: [
@@ -164,9 +177,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3000,
   },
   {
-    id: 'step-12',
+    id: 'step-13',
     componentId: 'blockstore',
-    title: '12. The slot lands in blockstore',
+    title: '13. The slot lands in blockstore',
     description:
       'Verified shreds are written to blockstore — the validator\'s local ledger. Once all shreds of a slot arrive, the completed block is handed to replay.',
     annotation: [
@@ -176,9 +189,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2600,
   },
   {
-    id: 'step-13',
+    id: 'step-14',
     componentId: 'replay-stage',
-    title: '13. Replay: trust nothing, verify everything',
+    title: '14. Replay: trust nothing, verify everything',
     description:
       'ReplayStage checks the PoH chain, then re-executes every transaction through the same runtime the leader used — across parallel thread pools — and freezes banks that match.',
     annotation: [
@@ -189,9 +202,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3600,
   },
   {
-    id: 'step-14',
+    id: 'step-15',
     componentId: 'svm-pipeline',
-    title: '14. Same engine, second caller',
+    title: '15. Same engine, second caller',
     description:
       'Replay invokes the identical SVM library the leader used. If any result differs, the block is rejected — agreement comes from determinism, not trust.',
     annotation: [
@@ -201,9 +214,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3000,
   },
   {
-    id: 'step-15',
+    id: 'step-16',
     componentId: 'tower-bft',
-    title: '15. Fork choice gates the vote',
+    title: '16. Fork choice gates the vote',
     description:
       'Before voting on the freshly replayed bank, the tower consults fork choice: are we locked elsewhere? Is our target confirmed enough? Would switching forks require a switch proof?',
     annotation: [
@@ -214,9 +227,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3600,
   },
   {
-    id: 'step-16',
+    id: 'step-17',
     componentId: 'voting-service',
-    title: '16. Our vote goes out',
+    title: '17. Our vote goes out',
     description:
       'The decided vote is persisted to tower storage first — a crash must never lose lockouts — then published on two paths at once.',
     annotation: [
@@ -227,9 +240,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3000,
   },
   {
-    id: 'step-17',
+    id: 'step-18',
     componentId: 'gossip',
-    title: '17. Votes ride the gossip mesh',
+    title: '18. Votes ride the gossip mesh',
     description:
       'Gossip propagates votes peer-to-peer across the cluster. Every validator\'s listener will see every vote within moments — no leader involvement required.',
     annotation: [
@@ -239,9 +252,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 2800,
   },
   {
-    id: 'step-18',
+    id: 'step-19',
     componentId: 'cluster-info-vote-listener',
-    title: '18. The cluster\'s votes return',
+    title: '19. The cluster\'s votes return',
     description:
       'Other validators\' votes arrive over gossip (and inside received blocks). Each is CPU-verified and tracked per slot until thresholds fire.',
     annotation: [
@@ -252,9 +265,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3400,
   },
   {
-    id: 'step-19',
+    id: 'step-20',
     componentId: 'tower-bft',
-    title: '19. Roots advance — finality arrives',
+    title: '20. Roots advance — finality arrives',
     description:
       'With confirmations stacking, the 31-deep tower fills: the oldest vote pops off and becomes the root. Forks below the root are pruned away permanently.',
     annotation: [
@@ -265,9 +278,9 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     duration: 3600,
   },
   {
-    id: 'step-20',
+    id: 'step-21',
     componentId: 'accounts-db',
-    title: '20. Consolidation completes — asynchronously',
+    title: '21. Consolidation completes — asynchronously',
     description:
       'Root advancement triggers background consolidation of account state. Notice what never happened: no step executed transactions into disk synchronously.',
     annotation: [

@@ -47,8 +47,8 @@ describe('Data consistency', () => {
     expect(connectionSet.has('blockstore->replay-stage')).toBe(true)
   })
 
-  it('lifecycle path starts at ingress and ends at async persistence home (C-4)', () => {
-    expect(TX_LIFECYCLE_PATH[0]).toBe('quic-streamer')
+  it('lifecycle path starts at submission and ends at async persistence home (C-4)', () => {
+    expect(TX_LIFECYCLE_PATH[0]).toBe('rpc-api')
     expect(TX_LIFECYCLE_PATH[TX_LIFECYCLE_PATH.length - 1]).toBe('accounts-db')
   })
 
@@ -71,5 +71,11 @@ describe('Data consistency', () => {
   it('new consensus services exist as first-class nodes (FR-011 subset)', () => {
     expect(componentIds.has('cluster-info-vote-listener')).toBe(true)
     expect(componentIds.has('voting-service')).toBe(true)
+  })
+
+  it('client-facing submission entry exists and feeds ingress (FR-011)', () => {
+    expect(componentIds.has('rpc-api')).toBe(true)
+    expect(TX_LIFECYCLE_PATH[0]).toBe('rpc-api')
+    expect(connectionSet.has('rpc-api->quic-streamer')).toBe(true)
   })
 })

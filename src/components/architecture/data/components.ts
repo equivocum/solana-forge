@@ -131,6 +131,42 @@ export const QUIC_STREAMER: ArchitectureComponent = {
   ]
 }
 
+export const RPC_API: ArchitectureComponent = {
+  id: 'rpc-api',
+  name: 'RPC API (JsonRpcService)',
+  icon: '🛎️',
+  category: 'networking',
+  layer: 'networking',
+  pipeline: 'shared',
+  position: 0,
+  detail: {
+    purpose: 'The client-facing door: exposes the JSON-RPC API (sendTransaction, getSignatureStatuses, …) that wallets and dApps call.',
+    role: 'Runs on RPC nodes in front of the validator: accepts submissions over HTTP, then hands them to SendTransactionService for delivery toward upcoming leaders.',
+    howItWorks: {
+      title: 'From Wallet to Validator',
+      steps: [
+        'Client sends an HTTP JSON-RPC call — e.g., sendTransaction carrying the signed, serialized transaction',
+        'The node applies its own rate limits and API checks',
+        'SendTransactionService queues the transaction for delivery',
+        'It resolves the current and upcoming leaders from the leader schedule',
+        'Transactions are pushed over QUIC to those leaders\' TPU endpoints — the exact ingress this diagram follows next',
+        'Clients later poll getSignatureStatuses, which reads the Status Cache',
+      ]
+    },
+    whyItMatters: 'Client→RPC→Validator separation keeps heavy public-API traffic off block-producing hardware, letting validators spend every cycle on the pipeline.',
+    metrics: [
+      'Inbound transport: HTTP JSON-RPC',
+      'Outbound transport: QUIC to leader TPU endpoints',
+      'Delivery model: best-effort push with retry window',
+    ]
+  },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/validator.rs#L1303',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/send-transaction-service/src/send_transaction_service.rs#L60',
+  ],
+  subComponents: []
+}
+
 export const GULF_STREAM: ArchitectureComponent = {
   id: 'gulf-stream',
   name: 'Gulf Stream',
@@ -1662,7 +1698,7 @@ export const EPOCH_SCHEDULE: ArchitectureComponent = {
 
 export const ALL_COMPONENTS: ArchitectureComponent[] = [
   // Networking
-  QUIC_STREAMER, GULF_STREAM, GOSSIP, REPAIR, TURBINE,
+  RPC_API, QUIC_STREAMER, GULF_STREAM, GOSSIP, REPAIR, TURBINE,
   // TPU Pipeline
   TPU_FETCH, SIG_VERIFY, BANKING_STAGE, POH_RECORDING, BROADCAST, FORWARDING,
   // TVU Pipeline
