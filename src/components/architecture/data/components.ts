@@ -770,23 +770,34 @@ export const REPLAY_STAGE: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 3,
   detail: {
-    purpose: 'Executes transactions from assembled blocks against local state and reports results to consensus.',
-    role: 'Main loop of the validator. Connects ledger, runtime, AccountsDB, and consensus.',
+    purpose: 'Independently re-executes every received block and decides — through fork choice — which ones deserve a vote.',
+    role: 'The validator\'s main loop: verifies the PoH chain first, replays forks in parallel, freezes matching banks, and gates every vote through fork-choice checks.',
     howItWorks: {
       title: 'Replay Flow',
       steps: [
-        'Pull new blocks from Blockstore via Window Service',
-        'For each block: execute transactions against local Bank state',
-        'Use SVM/Sealevel runtime for parallel execution',
-        'Update AccountsDB with state changes',
-        'Report execution results to Consensus (Tower BFT)',
-        'Handle fork selection and rollback if needed',
-        'Roll back Bank to vote point and replay if fork switches',
+        'Completed slots arrive from Blockstore',
+        'Entry and PoH chains are verified first — every hash must link exactly',
+        'Transactions are then re-executed via the SVM library, the same code path the leader used',
+        'Two rayon pools run in parallel: replay_forks_threads across competing forks, replay_transactions_threads inside each bank',
+        'Banks whose results match the broadcast block are frozen',
+        'For each votable bank the fork-choice gate runs: lockout check → threshold check → propagation check → switch-proof if abandoning a fork',
+        'Passing votes go to VotingService; fully processed banks reach root handling (handle_votable_bank)',
+        'Conflicting Merkle roots between shreds are tracked as duplicate-slot evidence',
       ]
     },
-    whyItMatters: 'Replay Stage is where validators verify the leader\'s work. Without it, validators cannot participate in consensus.',
-    metrics: ['Main validator loop', 'Fork-aware: handles multiple competing chains']
+    whyItMatters: 'This is Solana\'s "trust but verify": nothing a leader claims is accepted until it has been recomputed here, hash by hash and transaction by transaction.',
+    metrics: [
+      'Parallel pools: replay_forks_threads / replay_transactions_threads',
+      'Vote gate order: lockouts → thresholds → propagation → switch proof',
+      'Duplicate threshold derived from SWITCH_FORK_THRESHOLD (0.38)',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L415-L416',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L736-L737',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L13-L15',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L3026',
+  ],
   subComponents: []
 }
 
