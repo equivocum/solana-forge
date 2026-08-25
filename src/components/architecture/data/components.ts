@@ -1258,6 +1258,74 @@ export const TOWER_BFT: ArchitectureComponent = {
   ]
 }
 
+export const CLUSTER_INFO_VOTE_LISTENER: ArchitectureComponent = {
+  id: 'cluster-info-vote-listener',
+  name: 'Cluster Info Vote Listener',
+  icon: '📥',
+  category: 'consensus',
+  layer: 'consensus',
+  pipeline: 'shared',
+  position: 4,
+  detail: {
+    purpose: 'Receives other validators\' votes arriving over gossip, verifies them, and turns them into confirmation signals.',
+    role: 'Polls the gossip table for new cluster votes, verifies each signature on CPU, and keeps per-slot vote trackers that fire threshold events.',
+    howItWorks: {
+      title: 'Inbound Vote Processing',
+      steps: [
+        'A receive loop polls gossip for newly available votes (get_votes with a cursor)',
+        'Every incoming vote is CPU-verified — signature and vote-account integrity',
+        'Verified votes are recorded in per-slot VoteTracker structures',
+        'When a slot\'s tracked votes pass 2/3 of stake, optimistic confirmation fires',
+        'Duplicate-confirmation levels are tracked separately for duplicate-slot evidence',
+        'When this validator is leader (or about to be), verified gossip votes are injected into Banking Stage\'s vote lane so they land in our blocks',
+      ]
+    },
+    whyItMatters: 'Votes reach a validator two ways — inside received blocks and over gossip. This listener is the gossip half; without it, confirmation levels would only move as fast as block delivery.',
+    metrics: [
+      'Two return routes handled: gossip + replayed blocks',
+      'Optimistic confirmation threshold: ≥2/3 stake',
+    ]
+  },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L510',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L529',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L128-L142',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+  ],
+  subComponents: []
+}
+
+export const VOTING_SERVICE: ArchitectureComponent = {
+  id: 'voting-service',
+  name: 'Voting Service',
+  icon: '📤',
+  category: 'consensus',
+  layer: 'consensus',
+  pipeline: 'shared',
+  position: 5,
+  detail: {
+    purpose: 'Publishes this validator\'s own votes outward so the cluster can count them.',
+    role: 'Takes vote decisions produced by ReplayStage/tower, makes sure the tower is durably saved first, then sends the vote on both outbound paths.',
+    howItWorks: {
+      title: 'Outbound Vote Path',
+      steps: [
+        'ReplayStage hands over a decided vote operation',
+        'The tower state is persisted to storage first — a crash must never lose lockouts',
+        'The vote is signed and pushed into gossip for cluster-wide visibility',
+        'Simultaneously it is submitted as a transaction toward upcoming leaders via the TPU-vote lane',
+        'Other validators\' listeners pick it up from either route and confirmation accounting begins',
+      ]
+    },
+    whyItMatters: 'A vote only counts once others see it. Persist-before-send is the safety trick: even a crash mid-vote leaves the tower consistent.',
+    metrics: ['Two egress paths: gossip push + TPU-vote submission']
+  },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tvu.rs#L121-L122',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L73',
+  ],
+  subComponents: []
+}
+
 export const STATUS_CACHE: ArchitectureComponent = {
   id: 'status-cache',
   name: 'Status Cache',
@@ -1602,7 +1670,7 @@ export const ALL_COMPONENTS: ArchitectureComponent[] = [
   // Runtime
   SVM_PIPELINE, SBPF_VM, CPI, COMPUTE_BUDGET,
   // Consensus
-  POH, TOWER_BFT, STATUS_CACHE, EPOCH_SCHEDULE,
+  POH, TOWER_BFT, CLUSTER_INFO_VOTE_LISTENER, VOTING_SERVICE, STATUS_CACHE, EPOCH_SCHEDULE,
   // Storage
   ACCOUNTS_DB, BLOCKSTORE, BANK, SNAPSHOT,
   // Programs

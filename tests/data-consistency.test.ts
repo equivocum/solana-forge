@@ -60,4 +60,16 @@ describe('Data consistency', () => {
       ).toBe(true)
     })
   })
+
+  it('every connection endpoint references an existing component (C-5)', () => {
+    ALL_CONNECTIONS.forEach(edge => {
+      expect(componentIds.has(edge.from), `unknown from: ${edge.from}`).toBe(true)
+      expect(componentIds.has(edge.to), `unknown to: ${edge.to}`).toBe(true)
+    })
+  })
+
+  it('new consensus services exist as first-class nodes (FR-011 subset)', () => {
+    expect(componentIds.has('cluster-info-vote-listener')).toBe(true)
+    expect(componentIds.has('voting-service')).toBe(true)
+  })
 })
