@@ -61,7 +61,7 @@ solana-forge/
 │   │   ├── SimulationSidebar.tsx        # Step info, annotations, controls
 │   │   ├── ZoomPanel.tsx                # Detailed component inspector
 │   │   └── data/                        # Architecture definitions
-│   │       ├── components.ts            # 32 validator components (audited vs Agave v4.2.1)
+│   │       ├── components.ts            # 31 validator components (audited vs Agave v4.2.1)
 │   │       ├── connections.ts           # Data flow + tx lifecycle path
 │   │       └── simulation-steps.ts      # 21-step guided tour sequence
 │   ├── hooks/useAnnotations.ts          # Annotation state management
@@ -81,7 +81,7 @@ solana-forge/
 
 Two visualization modes:
 
-- **Pipeline Flow**: See data flow through all 32 components with the animated transaction bubble tracing the full lifecycle
+- **Pipeline Flow**: See data flow through all 31 components with the animated transaction bubble tracing the full lifecycle
 - **Layered View**: Components organized by layer (networking, TPU, TVU, runtime, consensus, storage)
 
 ## Annotation System

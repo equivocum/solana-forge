@@ -111,12 +111,20 @@ describe('Data consistency', () => {
   it('every component carries ≥1 pinned v4.2.1 citation with correct grammar (C-1/C-5)', () => {
     const REF_RE =
       /^https:\/\/github\.com\/anza-xyz\/agave\/blob\/v4\.2\.1\/[A-Za-z0-9_/.-]+(#L\d+(-L\d+)?)?$/
-    ALL_COMPONENTS.forEach(c => {
-      expect(c.refs, `${c.id} has no refs`).toBeDefined()
-      expect(c.refs!.length, `${c.id} needs ≥1 ref`).toBeGreaterThanOrEqual(1)
-      c.refs!.forEach(r => {
-        expect(REF_RE.test(r), `${c.id} bad citation grammar: ${r}`).toBe(true)
+    const problems: string[] = []
+    const check = (owner: string, refs: string[] | undefined) => {
+      if (!refs || refs.length < 1) {
+        problems.push(`${owner}: needs ≥1 ref`)
+        return
+      }
+      refs.forEach(r => {
+        if (!REF_RE.test(r)) problems.push(`${owner}: bad citation grammar: ${r}`)
       })
+    }
+    ALL_COMPONENTS.forEach(c => {
+      check(c.id, c.refs)
+      c.subComponents.forEach(sub => check(`${c.id}/${sub.id}`, sub.refs))
     })
+    expect(problems).toEqual([])
   })
 })

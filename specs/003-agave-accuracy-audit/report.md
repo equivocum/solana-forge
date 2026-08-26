@@ -120,6 +120,35 @@ Method: each sampled permalink's `path#L<n>` was resolved against tag `v4.2.1` c
 | 11 | send-transaction-service/…rs#L60 (rpc-api) | `pub struct SendTransactionService` | ✓ |
 | 12 | turbine/src/cluster_nodes.rs#L47 (turbine) | `DATA_PLANE_FANOUT = 200` | ✓ |
 
+
+## Tour-Step Citation Map (SC-001 — T029)
+
+Every guided-tour step and the REF links its badges carry. All links pin tag `v4.2.1` (grammar C-1); sampling results in the appendix above.
+
+| Step | Component | REF anchors (v4.2.1) |
+|------|-----------|----------------------|
+| 1 | `rpc-api` | core/src/validator.rs#L1303<br>send-transaction-service/src/send_transaction_service.rs#L60 |
+| 2 | `quic-streamer` | core/src/tpu.rs#L220-L265<br>core/src/tpu.rs#L244-L265<br>core/src/tpu.rs#L56 |
+| 3 | `tpu-fetch` | core/src/tpu.rs#L284<br>core/src/tpu.rs#L220-L221 |
+| 4 | `sig-verify` | perf/src/sigverify.rs#L15<br>perf/src/deduper.rs#L20<br>banking-stage-ingress-types/src/lib.rs#L20 |
+| 5 | `banking-stage` | core/src/banking_stage.rs#L570<br>core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L53<br>core/src/banking_stage/consumer.rs#L474 |
+| 6 | `svm-pipeline` | core/src/banking_stage/consumer.rs#L318<br>runtime/src/bank.rs#L1<br>program-runtime/src/execution_budget.rs#L26 |
+| 7 | `poh-recording` | poh/src/poh_service.rs#L120<br>poh/src/poh_recorder.rs#L127<br>poh/src/record_channels.rs#L31 |
+| 8 | `broadcast` | ledger/src/shred.rs#L121-L122 |
+| 9 | `turbine` | core/src/tvu.rs#L359-L395 |
+| 10 | `shred-fetch` | core/src/tvu.rs#L359-L395 |
+| 11 | `shred-sig-verify` | turbine/src/sigverify_shreds.rs#L147<br>turbine/src/sigverify_shreds.rs#L82 |
+| 12 | `window-service` | core/src/window_service.rs#L148-L162<br>ledger/src/shred.rs#L121-L122 |
+| 13 | `blockstore` | core/src/tvu.rs#L454<br>core/src/window_service.rs#L148 |
+| 14 | `replay-stage` | core/src/replay_stage.rs#L415-L416<br>core/src/replay_stage.rs#L736-L737<br>core/src/replay_stage.rs#L13-L15 |
+| 15 | `svm-pipeline` | core/src/banking_stage/consumer.rs#L318<br>runtime/src/bank.rs#L1 |
+| 16 | `tower-bft` | core/src/replay_stage.rs#L13-L15<br>core/src/consensus.rs#L158 |
+| 17 | `voting-service` | core/src/tvu.rs#L121-L122 |
+| 18 | `gossip` | core/src/cluster_info_vote_listener.rs#L510<br>core/src/cluster_info_vote_listener.rs#L529 |
+| 19 | `cluster-info-vote-listener` | core/src/cluster_info_vote_listener.rs#L128-L142<br>runtime/src/commitment.rs#L9<br>core/src/cluster_info_vote_listener.rs#L73 |
+| 20 | `tower-bft` | core/src/consensus/tower_vote_state.rs#L48<br>core/src/consensus/tower_vote_state.rs#L70<br>runtime/src/commitment.rs#L9 |
+| 21 | `accounts-db` | core/src/validator.rs#L1045<br>core/src/validator.rs#L688 |
+
 ## Disposition Rules
 - Each row reaches exactly one terminal state: `corrected-in-app` | `labeled-simplification` | `deferred:<rationale>` (SC-003).
 - Rows ride along the commit that implements their correction (FR-021); suite+tsc green required (FR-022).

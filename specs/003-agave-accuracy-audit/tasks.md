@@ -172,3 +172,17 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 - Success criteria mapping: SC-001→T010/T016/T023; SC-002→T024/T025; SC-003→T024b/T026; SC-004→T017; SC-005→gates T011/T017/T023/T027; SC-006→T026
 - Requirement coverage additions: FR-004→T024b; FR-024→per-commit size/completeness rule (≤500 changed lines, fully complete, enforced on every implementation task)
 - Verify baseline before first change (T001); never leave the suite red (FR-022)
+
+---
+
+## Phase 8: Convergence
+
+- [x] T028 Render component `refs[]` as clickable pinned-release citations in ZoomPanel inspector per US4/AC1 + SC-002 (missing)
+- [x] T029 Append per-step citation appendix (step # → component → REF links) to report.md per SC-001 (partial)
+- [x] T030 Add ≥1 compliant v4.2.1 anchor to remaining sub-components (quic-tls, crds, block-processor, transaction-processor, instruction-processor, others found by sweep) per FR-002 (partial)
+
+---
+
+## Phase 9: Convergence
+
+- [x] T031 Remove the empty duplicate "Tour-Step Citation Map" section from report.md (leftover from T029 first pass; keep the populated section at :132) per SC-001 (partial)

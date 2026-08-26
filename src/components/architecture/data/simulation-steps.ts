@@ -68,7 +68,7 @@ export const SIMULATION_STEPS: SimulationStep[] = [
     description:
       'Every packet\'s Ed25519 signature is checked in parallel across CPU cores, 128 packets per batch. A Bloom filter drops duplicate packets before work is wasted.',
     annotation: [
-      { type: 'STAGE', content: 'VERIFY — parallel signature verification', sourceRef: ref('perf/src/sigverify.rs', 'L15') },
+      { type: 'STAGE', content: 'VERIFY — parallel signature verification', sourceRef: ref('perf/src/sigverify.rs', 'L2') },
       { type: 'HOW', content: 'VERIFY_PACKET_CHUNK_SIZE = 128 packets per verification chunk; perf::Deduper filters recent duplicates.', sourceRef: ref('perf/src/deduper.rs', 'L20') },
       { type: 'WHY', content: 'A shared priority floor keeps vote packets verifying ahead of ordinary traffic.', sourceRef: ref('banking-stage-ingress-types/src/lib.rs', 'L20') },
     ],
