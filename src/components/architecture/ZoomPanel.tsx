@@ -91,6 +91,11 @@ export function ZoomPanel({ component, initialSubId, onClose }: ZoomPanelProps) 
                 </Section>
               )}
 
+              {/* Pinned-release citations */}
+              {component.refs && component.refs.length > 0 && (
+                <RefsList refs={component.refs} />
+              )}
+
               {/* Sub-components */}
               {component.subComponents.length > 0 && (
                 <Section title={`Sub-Components (${component.subComponents.length})`}>
@@ -126,6 +131,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">{title}</h3>
       {children}
     </div>
+  )
+}
+
+// // STAGE: zoom_refs
+function RefsList({ refs }: { refs: string[] }) {
+  return (
+    <Section title="Sources (Agave v4.2.1)">
+      <ul className="space-y-1">
+        {refs.map((r, i) => (
+          <li key={i} className="text-xs">
+            <a
+              href={r}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-blue-400 hover:text-blue-300 hover:underline break-all"
+            >
+              // REF: {r.replace('https://github.com/anza-xyz/agave/blob/v4.2.1/', '')}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </Section>
   )
 }
 
@@ -194,6 +221,9 @@ function SubComponentDetail({ sub, onBack }: { sub: SubComponent; onBack: () => 
           </div>
         </Section>
       )}
+
+      {/* Pinned-release citations */}
+      {sub.refs && sub.refs.length > 0 && <RefsList refs={sub.refs} />}
 
       {/* Level 3: Internals */}
       {sub.internals && sub.internals.length > 0 && (
