@@ -19,6 +19,7 @@
 - Q: When exploring the particle map, should the learner be able to pan and zoom the scene, and how do bubble labels stay readable? → A: Free panning by dragging and zooming via scroll/pinch; labels show on hover at any zoom level and persist visibly once zoomed in close enough
 - Q: How should component clusters be arranged spatially in the particle map? → A: Soft lifecycle-ordered zones (ingress → pipeline → consensus → storage) with bubbles drifting freely inside their zone
 - Q: Should bubbles and connections be operable via keyboard in the particle map? → A: Deferred — this feature ships pointer/touch interaction only; keyboard operability may be revisited later
+- Q: Should the guided-tour step-advance defect be repaired as part of this feature? → A: Yes — fix it in this feature; US4-AC1 ("unchanged") is read as "unregressed", so all three modes get complete 21-step tours
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -96,6 +97,7 @@ A returning learner switches between Pipeline Flow, Layered View, and the partic
 - What happens when the learner's device requests reduced motion? The idle simulation calms to minimal, non-distracting movement while all information (clustering, connections, particles' paths) stays legible.
 - What happens on small windows? Clusters may compress and labels abbreviate, but no bubble becomes unreachable and no connection disappears.
 - What happens when a tour step targets a component while the learner is mid-hover elsewhere? The step's focus takes precedence and hover state clears cleanly.
+- The shared tour step-advance logic (`App.tsx` `handleSimStepChange` and `SimulationSidebar`) currently caps manual step navigation at 17 of 21 steps and bypasses highlight synchronization; this defect is repaired within this feature so that all three view modes support the full 21-step tour end-to-end.
 
 ## Requirements *(mandatory)*
 
