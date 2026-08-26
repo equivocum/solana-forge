@@ -104,7 +104,10 @@ export const QUIC_STREAMER: ArchitectureComponent = {
         },
         whyItMatters: 'Prevents MITM attacks and transaction interception. Ed25519 authentication ties QUIC connections to validator stake.',
         metrics: ['Handshake: 1 RTT (0-RTT on reconnect)', 'Cipher: AES-256-GCM', 'Key exchange: X25519']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/streamer/src/quic.rs#L5',
+      ]
     },
     {
       id: 'swqos',
@@ -217,7 +220,10 @@ export const GOSSIP: ArchitectureComponent = {
         },
         whyItMatters: 'Simple conflict resolution via timestamps. No complex CRDT needed. Works for eventually-consistent data like contact info and vote records.',
         metrics: ['Max value size: ~1KB', 'Shard count: configurable']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/gossip/src/crds.rs#L68',
+      ]
     }
   ]
 }
@@ -973,7 +979,10 @@ export const SVM_PIPELINE: ArchitectureComponent = {
         },
         whyItMatters: 'This is the "trust but verify" half of Solana: no validator ever trusts a leader\'s claimed state; everyone recomputes it.',
         metrics: ['Executes inside ReplayStage\'s parallel thread pools']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/blockstore_processor.rs#L951',
+      ]
     },
     {
       id: 'transaction-processor',
@@ -994,7 +1003,10 @@ export const SVM_PIPELINE: ArchitectureComponent = {
         },
         whyItMatters: 'Handles the full lifecycle of a single transaction. Clean separation of concerns.',
         metrics: ['Max instructions per tx: unlimited (within CU budget)']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/svm/src/transaction_processor.rs#L82',
+      ]
     },
     {
       id: 'instruction-processor',
@@ -1017,7 +1029,10 @@ export const SVM_PIPELINE: ArchitectureComponent = {
         },
         whyItMatters: 'Native programs are fast (direct Rust execution). sBPF programs are sandboxed for safety. Both use the same interface.',
         metrics: ['Native: direct execution', 'sBPF: JIT compiled to x86_64']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/invoke_context.rs#L64',
+      ]
     }
   ]
 }
@@ -1079,7 +1094,10 @@ export const SBPF_VM: ArchitectureComponent = {
         },
         whyItMatters: 'Syscalls provide controlled access to runtime functionality. Programs cannot access anything not exposed via syscalls.',
         metrics: ['~30 syscalls total', 'Ed25519 verify syscall available']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/invoke_context.rs#L641',
+      ]
     }
   ]
 }
@@ -1178,7 +1196,10 @@ export const COMPUTE_BUDGET: ArchitectureComponent = {
           'Burn rate: 50%',
           'Priority fee: 100% to validator',
         ]
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/fee/src/lib.rs#L23',
+      ]
     }
   ]
 }
@@ -1475,7 +1496,10 @@ export const ACCOUNTS_DB: ArchitectureComponent = {
         },
         whyItMatters: 'Memory-mapping enables zero-copy reads, critical for high-throughput account access.',
         metrics: ['Alignment: 64 bytes', 'One file per slot']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/accounts-db/src/append_vec.rs#L147',
+      ]
     },
     {
       id: 'account-index',
@@ -1496,7 +1520,10 @@ export const ACCOUNTS_DB: ArchitectureComponent = {
         },
         whyItMatters: 'Sharded index enables O(1) lookup for most accounts. Critical for transaction execution speed.',
         metrics: ['Bins: 8,192', 'Modes: In-Memory or Disk-Backed']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/accounts-db/src/accounts_index.rs#L54',
+      ]
     }
   ]
 }
@@ -1653,7 +1680,10 @@ export const NATIVE_PROGRAMS: ArchitectureComponent = {
         },
         whyItMatters: 'Signature verification is the most common instruction. Running it natively (not in VM) saves ~10x compute.',
         metrics: ['Ed25519: 2,280 CUs', 'Secp256k1: 6,690 CUs']
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/precompiles/src/lib.rs#L26',
+      ]
     }
   ]
 }
