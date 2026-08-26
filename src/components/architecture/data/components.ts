@@ -325,6 +325,7 @@ export const SIG_VERIFY: ArchitectureComponent = {
     ]
   },
   refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/sigverify.rs#L2',
     'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/sigverify.rs#L15',
     'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L284',
     'https://github.com/anza-xyz/agave/blob/v4.2.1/banking-stage-ingress-types/src/lib.rs#L20',
