@@ -133,7 +133,7 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Update README.md architecture summary bullets (TPU/TVU pipeline descriptions, component count, vote-loop mention) to match corrected model; run full specs/003-agave-accuracy-audit/quickstart.md validation end-to-end; open PR from feature/8-agave-accuracy-audit to main referencing constitution Git Flow, closing #8 (issue/self-review/squash-merge)
+- [x] T027 Update README.md architecture summary bullets (TPU/TVU pipeline descriptions, component count, vote-loop mention) to match corrected model; run full specs/003-agave-accuracy-audit/quickstart.md validation end-to-end; open PR from feature/8-agave-accuracy-audit to main referencing constitution Git Flow, closing #8 (issue/self-review/squash-merge)
 
 ---
 
