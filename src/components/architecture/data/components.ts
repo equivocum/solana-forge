@@ -25,6 +25,7 @@ export interface SubComponent {
   icon: string
   detail: ComponentDetail
   internals?: InternalDetail[]
+  refs?: string[]     // Pinned-release citation permalinks (grammar: contract C-1)
 }
 
 export interface InternalDetail {
@@ -43,6 +44,7 @@ export interface ArchitectureComponent {
   position: number    // Order in pipeline (for layout)
   detail: ComponentDetail
   subComponents: SubComponent[]
+  refs?: string[]     // Pinned-release citation permalinks (grammar: contract C-1)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -58,26 +60,30 @@ export const QUIC_STREAMER: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'Receives incoming transactions from clients and other validators over QUIC protocol with TLS 1.3 encryption.',
-    role: 'Entry point for all new transactions into the TPU pipeline. Replaced raw UDP as the primary transport.',
+    purpose: 'Terminates the validator\'s QUIC connections — every transaction and vote enters through one of its three streamer endpoints.',
+    role: 'Three dedicated endpoints: solQuicTpu for regular traffic, solQuicTpuFwd for one-hop forwards, solQuicTVo for votes — each with its own admission policy.',
     howItWorks: {
       title: 'QUIC Connection Flow',
       steps: [
-        'Client establishes QUIC connection with TLS 1.3 (ALPN: solana-tpu)',
-        'Each transaction sent as a separate unidirectional QUIC stream',
-        'SWQoS allocates 80% capacity to staked validators, 20% to unstaked',
-        'Rate limiting applied per connection via STREAM_STOP_CODE_THROTTLING',
-        'Packets coalesced and buffered for SigVerify stage',
+        'Peers establish QUIC over TLS 1.3 (ALPN "solana-tpu"); the certificate binds the connection to a validator identity',
+        'Each transaction arrives on its own unidirectional QUIC stream',
+        'solQuicTVo runs a simple-QoS server dedicated to votes',
+        'solQuicTpu and solQuicTpuFwd run stake-weighted QoS servers: concurrent stream capacity scales with sender stake',
+        'Under pressure, admission control sheds unstaked senders before staked ones',
+        'Accepted packets are buffered and handed to Fetch Stage',
       ]
     },
-    whyItMatters: 'QUIC provides flow control, connection migration, and 0-RTT connection establishment. TLS 1.3 encrypts transaction data in transit. Replaced raw UDP which had no congestion control.',
+    whyItMatters: 'Splitting endpoints means vote traffic never competes with transaction floods for admission, while stake-weighting rewards investment with reliable delivery.',
     metrics: [
-      'Max transaction payload: 1,232 bytes (IPv6 MTU)',
-      'Default ports: 9001 (TPU-UDP), 9007 (TPU-QUIC)',
-      'Stake-weighted limits: 80% staked, 20% unstaked',
-      'Throttling window: 100ms',
+      'Endpoints: solQuicTpu / solQuicTpuFwd / solQuicTVo',
+      'Admission: stake-weighted (votes: simple QoS)',
+      'One transaction per QUIC stream',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L220-L265',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L56',
+  ],
   subComponents: [
     {
       id: 'quic-tls',
@@ -105,85 +111,60 @@ export const QUIC_STREAMER: ArchitectureComponent = {
       name: 'Stake-Weighted QoS',
       icon: '⚖️',
       detail: {
-        purpose: 'Prioritizes network traffic from staked validators over unstaked nodes.',
-        role: 'Allocates bandwidth proportionally to stake. Higher-staked validators get more concurrent streams.',
+        purpose: 'Decides who gets to open streams when the endpoint is busy.',
+        role: 'Tracks live connection load and admits new streams in proportion to the sender\'s stake share; unstaked senders are shed first under saturation.',
         howItWorks: {
           title: 'SWQoS Allocation',
           steps: [
-            'Track connection load via stream_load_ema (Exponential Moving Average)',
-            'Calculate available capacity: (max_load² / current_load) × (stake / total_stake)',
-            'Staked connections: up to 80% of total capacity',
-            'Unstaked connections: up to 20% of total capacity',
-            'Evict oldest 10% of unstaked connections when capacity full',
+            'Monitor active stream load as an exponential moving average',
+            'Compute remaining capacity from the load target',
+            'Divide available capacity across senders by stake weight',
+            'Admit or reject each incoming stream against that budget',
+            'When full, oldest unstaked connections are evicted before any staked one',
           ]
         },
-        whyItMatters: 'Prevents DoS from unstaked nodes. Ensures honest validators with stake always have bandwidth. Critical for network stability.',
-        metrics: [
-          'Staked allocation: 80%',
-          'Unstaked allocation: 20%',
-          'Minimum stake for staked treatment: 0.002% of total',
-          'Throttling interval: 100ms',
-        ]
-      }
+        whyItMatters: 'Bandwidth is a shared resource; weighting by stake makes spam expensive for the spammer and cheap for the network.',
+        metrics: ['Allocation ∝ stake share', 'Unstaked evicted first']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L244-L265']
     },
   ]
 }
 
-export const GULF_STREAM: ArchitectureComponent = {
-  id: 'gulf-stream',
-  name: 'Gulf Stream',
-  icon: '🌊',
+export const RPC_API: ArchitectureComponent = {
+  id: 'rpc-api',
+  name: 'RPC API (JsonRpcService)',
+  icon: '🛎️',
   category: 'networking',
   layer: 'networking',
   pipeline: 'shared',
-  position: 1,
+  position: 0,
   detail: {
-    purpose: 'Eliminates the traditional mempool by forwarding transactions directly to upcoming leaders.',
-    role: 'Transactions are forwarded to the current slot leader AND the next 2 upcoming leaders via QUIC.',
+    purpose: 'The client-facing door: exposes the JSON-RPC API (sendTransaction, getSignatureStatuses, …) that wallets and dApps call.',
+    role: 'Runs on RPC nodes in front of the validator: accepts submissions over HTTP, then hands them to SendTransactionService for delivery toward upcoming leaders.',
     howItWorks: {
-      title: 'Mempool-less Forwarding',
+      title: 'From Wallet to Validator',
       steps: [
-        'RPC node receives transaction from client',
-        'Looks up leader schedule (known 2 epochs in advance)',
-        'Forwards transaction to current leader + next 2 leaders via QUIC',
-        'No persistent mempool — transactions not processed are dropped',
-        'Leader processes or drops within one slot (~400ms)',
+        'Client sends an HTTP JSON-RPC call — e.g., sendTransaction carrying the signed, serialized transaction',
+        'The node applies its own rate limits and API checks',
+        'SendTransactionService queues the transaction for delivery',
+        'It resolves the current and upcoming leaders from the leader schedule',
+        'Transactions are pushed over QUIC to those leaders\' TPU endpoints — the exact ingress this diagram follows next',
+        'Clients later poll getSignatureStatuses, which reads the Status Cache',
       ]
     },
-    whyItMatters: 'No mempool means no state bloat, no MEV from mempool monitoring, and guaranteed delivery to leaders. Transactions either get processed or expire.',
+    whyItMatters: 'Client→RPC→Validator separation keeps heavy public-API traffic off block-producing hardware, letting validators spend every cycle on the pipeline.',
     metrics: [
-      'Forwarding: current + next 2 leaders',
-      'Blockhash validity: 151 slots (~60-90s)',
-      'Outbound queue cap: 10,000 txs during congestion',
+      'Inbound transport: HTTP JSON-RPC',
+      'Outbound transport: QUIC to leader TPU endpoints',
+      'Delivery model: best-effort push with retry window',
     ]
   },
-  subComponents: [
-    {
-      id: 'leader-schedule-lookup',
-      name: 'Leader Schedule Lookup',
-      icon: '📅',
-      detail: {
-        purpose: 'Determines which validators produce blocks for which slots.',
-        role: 'Stake-weighted random selection computed at epoch boundaries, known 2 epochs ahead.',
-        howItWorks: {
-          title: 'Leader Selection',
-          steps: [
-            'At epoch boundary, snapshot all validator stakes',
-            'Compute weighted random selection seeded by PoH tick count',
-            'Each leader assigned 4 consecutive slots (~1.6s)',
-            'Schedule distributed via Gossip to all validators',
-            'Deterministic: all validators compute same schedule independently',
-          ]
-        },
-        whyItMatters: 'Predictable leader schedule enables Gulf Stream forwarding. Stake-weighted selection ensures honest validators with more stake produce more blocks.',
-        metrics: [
-          'Epoch: 432,000 slots (~2-3 days)',
-          'Consecutive slots per leader: 4',
-          'Schedule known: 2 epochs ahead (~4-6 days)',
-        ]
-      }
-    }
-  ]
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/validator.rs#L1303',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/send-transaction-service/src/send_transaction_service.rs#L60',
+  ],
+  subComponents: []
 }
 
 export const GOSSIP: ArchitectureComponent = {
@@ -214,6 +195,9 @@ export const GOSSIP: ArchitectureComponent = {
       'Data types: ContactInfo, Vote, SnapshotHashes, EpochSlots, DuplicateShred, NodeInstance, Version',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/gossip/src/cluster_info.rs#L177',
+  ],
   subComponents: [
     {
       id: 'crds',
@@ -262,6 +246,9 @@ export const REPAIR: ArchitectureComponent = {
     whyItMatters: 'Turbine is best-effort. Repair ensures data availability even when network partitions or packet loss occur. Critical for liveness.',
     metrics: ['Repair requests are on-demand', 'serve_repair port advertised via ContactInfo']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/repair/repair_service.rs#L603',
+  ],
   subComponents: []
 }
 
@@ -296,6 +283,9 @@ export const TPU_FETCH: ArchitectureComponent = {
       'SO_REUSEPORT for parallel socket binding',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/fetch_stage.rs#L72',
+  ],
   subComponents: []
 }
 
@@ -308,46 +298,54 @@ export const SIG_VERIFY: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 1,
   detail: {
-    purpose: 'Validates Ed25519 signatures on incoming transactions in parallel, and deduplicates packets.',
-    role: 'Second stage of TPU. Parallel signature verification (GPU or CPU with AVX512), deduplication, and load shedding.',
+    purpose: 'Checks that every incoming transaction carries a valid Ed25519 signature before it consumes any further compute.',
+    role: 'Second stage of the TPU pipeline. Verifies signatures across all CPU cores in parallel and filters out duplicate packets.',
     howItWorks: {
       title: 'Signature Verification',
       steps: [
         'Packets received from Fetch stage',
-        'Deduplication: remove duplicate packets before signature checking',
-        'Parallel Ed25519 verification across multiple cores/GPU',
-        'Invalid signatures flagged for discard (not dropped immediately)',
-        'Load shedding: discard excessive packets to prevent overload',
+        'Each packet\'s transaction signature probes a Bloom filter — recently seen duplicates are dropped before verification work is spent',
+        'Surviving packets verified in batches of 128 (VERIFY_PACKET_CHUNK_SIZE) spread across all CPU cores',
+        'Invalid signatures flagged and their packets discarded',
+        'Load shedding discards excess packets under overload',
+        'A shared priority floor (SchedulerPriorityFloor) keeps consensus votes verifying ahead of ordinary traffic',
         'Verified packets passed to Banking Stage',
       ]
     },
-    whyItMatters: 'Signature verification is the most expensive step per-transaction. Parallelizing it across GPU/AVX512 is critical for throughput.',
+    whyItMatters: 'Signature verification dominates per-transaction cost. Chunked parallel batching across CPU cores is what lets one validator push tens of thousands of signatures per second.',
     metrics: [
-      'Signature cost: 720 CUs per Ed25519',
-      'Ed25519 verify: 2,280 CUs',
-      'Firedancer: 1M sigs/sec on single FPGA',
+      'VERIFY_PACKET_CHUNK_SIZE: 128 packets per batch',
+      'Dedup filter: probabilistic Bloom filter over recent packet signatures',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/sigverify.rs#L15',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L284',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/banking-stage-ingress-types/src/lib.rs#L20',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/deduper.rs#L20',
+  ],
   subComponents: [
     {
       id: 'dedup',
-      name: 'Deduplication',
+      name: 'Packet Deduplication',
       icon: '🔍',
       detail: {
-        purpose: 'Removes duplicate transactions before expensive signature verification.',
-        role: 'Uses transaction signature as dedup key. Prevents wasting compute on re-submitted transactions.',
+        purpose: 'Drops duplicate packets before signature verification work is wasted on them.',
+        role: 'A Bloom filter (perf::Deduper) keyed on the transaction signature hash remembers every recently seen packet.',
         howItWorks: {
           title: 'Dedup Logic',
           steps: [
-            'Hash each transaction signature',
-            'Check against recent transaction cache',
-            'If duplicate: discard packet',
-            'If new: pass to signature verification',
+            'Hash each packet\'s transaction signature',
+            'Probe the Bloom filter built over recent signatures',
+            'Signature never seen before → packet continues to verification',
+            'Signature already seen → packet discarded immediately',
+            'The filter resets periodically so entries age out',
           ]
         },
-        whyItMatters: 'Clients often re-submit transactions. Dedup saves ~2,280 CUs per duplicate.',
-        metrics: ['Dedup key: transaction signature (64 bytes)']
-      }
+        whyItMatters: 'Clients often re-submit identical packets when they don\'t get a quick answer. Filtering them here is nearly free compared to verifying the same signatures again.',
+        metrics: ['Dedup key: transaction signature hash']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/perf/src/deduper.rs#L20'],
     }
   ]
 }
@@ -361,101 +359,164 @@ export const BANKING_STAGE: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 2,
   detail: {
-    purpose: 'The core block-building engine. Schedules and executes transactions, builds the block.',
-    role: 'Third stage of TPU. 6 independent worker threads (4 regular + 2 vote) schedule and execute transactions in parallel.',
+    purpose: 'Turns verified packets into executed transactions and finished entries — the block-building engine.',
+    role: 'Four cooperating thread roles: a manager thread owning the runtime, a scheduler thread ordering the work, N consume-workers executing in parallel, and a dedicated vote-worker so consensus traffic never starves.',
     howItWorks: {
-      title: 'Banking Stage Pipeline',
+      title: 'From Packets to Entries',
       steps: [
-        'Central Scheduler receives verified packets from SigVerify',
-        'Transactions sorted by priority: reward * 1M / (cost + 1)',
-        'Prio-Graph DAG built to identify account conflicts',
-        'Non-conflicting transactions scheduled in parallel across 4 worker threads',
-        '2 dedicated vote threads ensure consensus votes are never starved',
-        'Account locks acquired per transaction (write = exclusive, read = shared)',
-        'Transactions executed via SVM/Sealevel runtime',
-        'Results committed to Bank state',
+        'Manager thread ("BankingMgr") runs a tokio current-thread runtime and owns the stage\'s state',
+        'Scheduler thread ("solBnkTxSched") pulls packets into a priority container ordered by fee and compute-unit price',
+        'GreedyScheduler picks the highest-priority non-conflicting batch (prio-graph finds conflicts)',
+        'Batches go to ConsumeWorkers ("solCoWorker01…") — default 4 workers, up to 64 addressable via a u64 thread bitmask',
+        'Each worker executes its batch through SVM and commits results to bank state',
+        'A dedicated VoteWorker ("solBanknStgVote") drains votes from both the TPU-vote receiver and verified gossip votes, stake-weighted and one at a time so entries pack tightly',
+        'When we are not leader, buffered packets get a Consume / Forward / Hold decision instead',
       ]
     },
-    whyItMatters: 'This is where blocks are actually built. The scheduler determines throughput — a bad scheduler means wasted block space and lower TPS.',
+    whyItMatters: 'The scheduling policy decides block-space quality; isolating votes on their own worker keeps consensus latency stable even during spam.',
     metrics: [
-      'Worker threads: 4 regular + 2 vote',
-      'Block capacity: 48M CU (100M with SIMD)',
-      'Default per-tx budget: 200,000 CU',
-      'Max per-tx: 1,400,000 CU',
-      'Max 64 txs per entry (non-conflicting batch)',
+      'ConsumeWorkers: default 4, up to 64',
+      'Votes processed one-at-a-time (stake-weighted drain order)',
+      'Buffered decisions: Consume / Forward / ForwardAndHold / Hold',
+      'Per-tx compute budget default 200k CU, max 1.4M CU',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L390',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L549',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L570',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L609',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L237',
+  ],
   subComponents: [
     {
       id: 'central-scheduler',
-      name: 'Central Scheduler',
+      name: 'Scheduler Thread (GreedyScheduler)',
       icon: '🎛️',
       detail: {
-        purpose: 'Single scheduler thread that builds a priority graph and dispatches transactions to worker threads.',
-        role: 'Replaces legacy thread-local schedulers. Builds DAG of transaction dependencies, dispatches to workers.',
+        purpose: 'One thread sees every pending transaction and decides what executes next.',
+        role: 'The SchedulerController runs GreedyScheduler over a shared priority container, coordinating with SigVerify through a priority floor.',
         howItWorks: {
-          title: 'Central Scheduler Flow',
+          title: 'Scheduling Flow',
           steps: [
-            'Receives verified packets from SigVerify',
-            'Sorts by priority: reward * 1,000,000 / (cost + 1)',
-            'Builds Prio-Graph: DAG with edges between conflicting transactions (same accounts)',
-            'Look-ahead window pops transactions from priority queue into graph',
-            'Detects conflicts: transactions touching same accounts cannot run in parallel',
-            'Dispatches non-conflicting batches to worker threads',
-            'Handles re-queuing when locks cannot be acquired',
+            'Verified packets arrive from SigVerify into the priority container',
+            'Ordering key: fee and compute-unit price paid per transaction',
+            'GreedyScheduler repeatedly picks the best transaction that does not conflict with work already scheduled',
+            'prio-graph groups conflicting transactions onto the same execution path',
+            'Non-conflicting batches are dispatched to ConsumeWorkers',
+            'Transactions whose locks are busy are re-queued instead of blocking others',
           ]
         },
-        whyItMatters: 'Central scheduler has全局 view of all pending transactions, enabling optimal scheduling decisions. Replaces greedy local schedulers.',
-        metrics: ['Scheduler thread: single', 'Worker dispatch: non-conflicting batches']
-      }
+        whyItMatters: 'A single scheduler with a global view packs blocks far better than per-thread queues racing each other.',
+        metrics: ['One scheduler thread ("solBnkTxSched")', 'Dispatch unit: non-conflicting batch']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L570',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L53',
+      ]
     },
     {
       id: 'prio-graph',
-      name: 'Prio-Graph (DAG)',
+      name: 'Prio-Graph (Conflict Batching)',
       icon: '📊',
       detail: {
-        purpose: 'Directed Acyclic Graph that models transaction conflicts for parallel scheduling.',
-        role: 'Edges represent account conflicts. Non-conflicting transactions can execute simultaneously.',
+        purpose: 'Groups transactions by account conflict so independent ones can run simultaneously.',
+        role: 'A graph library GreedyScheduler uses: nodes are transactions; edges connect those touching the same account.',
         howItWorks: {
-          title: 'Prio-Graph Construction',
+          title: 'Batching by Conflict',
           steps: [
-            'Each transaction is a node in the graph',
-            'Edge from tx A → tx B if A and B access the same account and at least one writes',
-            'Priority ordering: higher priority transactions scheduled first',
-            'Graph join detection: conflicting future transactions queued on same thread',
-            'Enables parallel execution of independent transactions',
+            'Each pending transaction becomes a node, weighted by its priority',
+            'An edge appears when two transactions access the same account and at least one writes',
+            'Connected groups form batches that must execute on one worker in order',
+            'Unconnected batches can go to different workers in parallel',
+            'Higher-priority nodes pull their group forward in the queue',
           ]
         },
-        whyItMatters: 'Without DAG, scheduler would process transactions sequentially. DAG enables parallel execution of non-conflicting transactions.',
+        whyItMatters: 'Hot accounts (busy DEX pools) serialize their neighborhood — prio-graph makes that cost visible and contained instead of stalling everyone.',
+        metrics: ['Edge rule: same account + at least one write']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L53']
+    },
+    {
+      id: 'consume-workers',
+      name: 'ConsumeWorkers (execute + commit)',
+      icon: '⚙️',
+      detail: {
+        purpose: 'Execute scheduled batches in parallel and commit the results.',
+        role: 'N identical workers ("solCoWorker01…"); inside each, Consumer executes the batch via SVM and Committer applies results to bank state.',
+        howItWorks: {
+          title: 'Worker Execution',
+          steps: [
+            'Worker receives a non-conflicting batch from the scheduler',
+            'Consumer loads accounts, executes transactions, records fees and statuses',
+            'Committer commits the resulting deltas to bank state and releases locks',
+            'QoS accounting meters the packet bandwidth used, weighted by sender stake',
+            'Retryable failures return the batch to the scheduler for re-queuing',
+          ]
+        },
+        whyItMatters: 'Parallel workers on disjoint account sets is where Sealevel\'s throughput actually happens.',
         metrics: [
-          'Priority formula: reward * 1,000,000 / (cost + 1)',
-          'Conflict detection: same account + at least one write',
+          'Default 4 workers (const NUM_WORKERS)',
+          'Up to 64 addressable — ThreadAwareAccountLocks tracks holders in a u64 bitmask',
         ]
-      }
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L549',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/scheduler_common.rs#L326',
+      ]
+    },
+    {
+      id: 'vote-worker',
+      name: 'VoteWorker (dedicated vote lane)',
+      icon: '🗳️',
+      detail: {
+        purpose: 'Guarantees consensus votes flow even when ordinary traffic is saturating the stage.',
+        role: 'A single dedicated worker ("solBanknStgVote") consuming both the TPU-vote receiver and verified gossip votes.',
+        howItWorks: {
+          title: 'Vote Processing',
+          steps: [
+            'Votes arrive on two lanes: TPU-vote QUIC ingress and gossip-verified votes when we are leader',
+            'The worker drains queued votes ordered by validator stake',
+            'Votes execute one at a time so entries pack tightly for broadcast',
+            'Because this lane is separate, a spam flood cannot delay our own voting',
+          ]
+        },
+        whyItMatters: 'Vote latency directly affects how quickly the cluster confirms blocks — isolating it protects the network\'s heartbeat.',
+        metrics: ['One-at-a-time processing', 'Stake-weighted drain order']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L609',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L237',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/vote_worker.rs#L274',
+      ]
     },
     {
       id: 'account-locking',
       name: 'Account Locking',
       icon: '🔒',
       detail: {
-        purpose: 'Ensures transactions don\'t conflict during parallel execution by locking accounts.',
-        role: 'Write locks are exclusive. Read locks are shared. Prevents data races during parallel execution.',
+        purpose: 'Keeps parallel workers from touching the same account at once.',
+        role: 'ThreadAwareAccountLocks grants write locks exclusively and read locks to sharers, tracking which of up-to-64 workers holds each account.',
         howItWorks: {
           title: 'Lock Acquisition',
           steps: [
-            'Before execution, each thread acquires locks on all accounts the transaction touches',
-            'Write lock: exclusive access (no other thread can read or write)',
-            'Read lock: shared access (other threads can read but not write)',
-            'If lock cannot be acquired: transaction re-queued to waiting queue',
-            'Hot accounts (popular DEX pools) create serialization bottlenecks',
+            'Before executing, the worker locks every account the transaction touches',
+            'Write lock: exclusive — no other worker may read or write that account meanwhile',
+            'Read lock: shared — many readers allowed, no writers',
+            'A u64 bitmask per account records which workers hold it (one bit per worker)',
+            'If any lock is taken, the transaction is re-queued rather than blocked',
+            'Hot accounts create serialization points exactly here',
           ]
         },
-        whyItMatters: 'Account locking is what enables Sealevel parallelism. Without it, all transactions would need sequential execution.',
-        metrics: [
-          'Write lock cost: 300 CUs per account',
-          'Hot accounts create serialization bottlenecks',
-        ]
-      }
+        whyItMatters: 'This is the mechanism behind Sealevel: workers only need to coordinate where accounts actually overlap.',
+        metrics: ['Bitmask width: 64 workers max']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage.rs#L80',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/transaction_scheduler/greedy_scheduler.rs#L247',
+      ]
     }
   ]
 }
@@ -469,51 +530,57 @@ export const POH_RECORDING: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 3,
   detail: {
-    purpose: 'Mixes entry hashes into the continuous SHA-256 hash chain (Proof of History).',
-    role: 'Single-threaded sequential SHA-256 loop that timestamps each entry. Cannot be parallelized.',
+    purpose: 'Stamps every executed batch into the ongoing SHA-256 hash chain, fixing its exact position in history.',
+    role: 'Leader-side recording half of Proof of History. Batches travel TransactionRecorder → bounded record_channels → PohService, which folds them into the chain immediately.',
     howItWorks: {
-      title: 'PoH Hash Chain',
+      title: 'Recording Into the Chain',
       steps: [
-        'Receive entries from Banking Stage',
-        'For each entry: hash = SHA-256(previous_hash + entry_data)',
-        'Intersperse ticks (64 per slot) — these are hash-only entries',
-        'Final PoH hash of slot becomes the block hash',
-        'Leader must publish blocks within PoH tick range or block is skipped',
+        'Consume-workers finish executing a batch',
+        'TransactionRecorder sends the batch over a bounded record channel',
+        'PohService immediately computes new_hash = SHA-256(previous_hash ‖ batch_data) — no storage step waits in between',
+        'Between batches, tick markers keep the chain advancing: 64 per slot by default',
+        'At the slot\'s final tick, accumulated entries flush to the working bank and continue on to Broadcast',
       ]
     },
-    whyItMatters: 'PoH proves chronological order without validator communication. It\'s a Verifiable Delay Function (VDF) — proves real time has passed.',
+    whyItMatters: 'The block literally is the recorded sequence: replaying the same hashes reproduces the same order, so transaction ordering needs no separate consensus.',
     metrics: [
       'Hash function: SHA-256',
-      'Ticks per slot: 64',
+      'Ticks per slot: 64 (default)',
       'Slot duration: ~400ms',
-      'Output: 32 bytes per tick',
+      'Output: 32 bytes per hash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/record_channels.rs#L31',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_recorder.rs#L127',
+  ],
   subComponents: [
     {
-      id: 'vdf',
-      name: 'Verifiable Delay Function',
+      id: 'tick-producer',
+      name: 'Inside the Hash Chain',
       icon: '🔐',
       detail: {
-        purpose: 'Proves passage of real time without requiring communication between validators.',
-        role: 'SHA-256 iteration N produces input for iteration N+1. Cannot be parallelized or sped up significantly.',
+        purpose: 'Shows exactly how successive hashes create a verifiable timeline.',
+        role: 'A purely sequential function: each value is derived only from the previous one, starting at genesis.',
         howItWorks: {
-          title: 'VDF Properties',
+          title: 'Chain Walkthrough',
           steps: [
-            'h₀ = genesis_hash',
+            'h₀ = genesis hash',
             'h₁ = SHA-256(h₀)',
-            'h₂ = SHA-256(h₁)',
-            '...',
-            'hₙ = SHA-256(hₙ₋₁)',
-            'Each hash depends on all previous hashes — sequential by design',
+            'h₂ = SHA-256(h₁) … hₙ = SHA-256(hₙ₋₁)',
+            'To mix in data (a transaction batch): h = SHA-256(h_prev ‖ batch_data) — the data becomes part of the chain',
+            'Every hash depends on all previous ones, so the sequence cannot be reordered or computed out of order',
+            'Anyone can start from h₀ and recompute the whole chain to verify it — no trust required',
           ]
         },
-        whyItMatters: 'ASIC resistance: exponential lockout growth outpaces linear ASIC speedup. A validator with 1000x faster hardware only gets ~10x advantage.',
+        whyItMatters: 'Each step is cheap but strictly sequential, so counting hashes measures elapsed work — a property shared with Verifiable Delay Functions (VDFs). PoH uses that property as a shared clock for ordering events; validators verify by recomputing rather than debating timestamps.',
         metrics: [
-          'Sequential: cannot be parallelized',
-          'ASIC resistance: exponential lockout > linear speedup',
+          '32 bytes per hash output',
+          'One dedicated thread, sequential by design',
         ]
-      }
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120'],
     }
   ]
 }
@@ -527,74 +594,89 @@ export const BROADCAST: ArchitectureComponent = {
   pipeline: 'tpu',
   position: 4,
   detail: {
-    purpose: 'Serializes completed entries into shreds and sends them via Turbine to the network.',
-    role: 'Final stage of TPU pipeline. Runs in parallel with Banking Stage — entries stream out as produced.',
+    purpose: 'Streams the growing block to the network as self-certifying shreds while production is still under way.',
+    role: 'Final leader-side stage: serializes entries into data shreds, adds Reed-Solomon coding shreds, and signs each FEC set\'s Merkle root.',
     howItWorks: {
       title: 'Broadcast Flow',
       steps: [
-        'Receives entries from Banking Stage',
-        'Serializes entries into data shreds (~1,228 bytes each)',
-        'Generates coding shreds via Reed-Solomon erasure coding (32:32 FEC)',
-        'Signs shreds with leader\'s keypair',
-        'Sends shreds through Turbine tree to network peers',
+        'Receives recorded entries from PoH recording',
+        'Shredder serializes entries into 32 data shreds per FEC set',
+        'Reed-Solomon coding produces 32 matching coding shreds',
+        'The FEC set\'s Merkle root is computed and signed by the leader — every shred carries a Merkle proof plus that one signature',
+        'chained_merkle_root ties each FEC set to the previous one, making the whole slot order-tamper-evident',
+        'Shreds fan out through Turbine immediately — no waiting for full-block assembly',
       ]
     },
-    whyItMatters: 'Continuous block building: entries stream out as produced, not after full block assembly. Reduces latency.',
+    whyItMatters: 'Signing Merkle roots instead of individual shreds keeps signing nearly free: one signature certifies all 64 shreds of a set, and the chain of roots proves both authenticity and sequence.',
     metrics: [
-      'Data shred: ~1,228 bytes payload',
-      'FEC ratio: 32:32 (data:coding)',
-      'Signed by slot leader',
+      'FEC ratio: 32 data : 32 coding',
+      'Max data shreds per slot: 32,768',
+      'One leader signature per 64-shred FEC set',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L121-L122',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L128',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred/merkle.rs#L141-L142',
+  ],
   subComponents: [
     {
       id: 'erasure-coding',
       name: 'Reed-Solomon Erasure Coding',
       icon: '🧩',
       detail: {
-        purpose: 'Adds redundancy to shreds so blocks can be reconstructed from partial data.',
-        role: 'Generates coding shreds that allow recovery from lost data shreds.',
+        purpose: 'Adds redundancy so receivers can rebuild lost shreds locally.',
+        role: 'Each 32-data-shred FEC set gets 32 coding shreds computed via Reed-Solomon encoding.',
         howItWorks: {
           title: 'Erasure Coding',
           steps: [
-            'Split entry into 32 data shreds (~1,228 bytes each)',
-            'Generate 32 coding shreds using Reed-Solomon encoding',
-            'Any 32 of 64 shreds (data + coding) can reconstruct the original',
-            'Send all 64 shreds through Turbine',
-            'Receiver needs only 50% of shreds to recover full block',
+            'Entries are split into 32 data shreds per FEC set',
+            'Reed-Solomon parity math derives 32 coding shreds',
+            'Any 32 of the 64 shreds reconstruct the entire set',
+            'All 64 fan out through Turbine together',
           ]
         },
-        whyItMatters: '50% redundancy means blocks survive significant packet loss. Critical for Turbine\'s best-effort delivery model.',
-        metrics: ['FEC: 32 data + 32 coding = 64 total', 'Recovery threshold: 32 of 64']
-      }
+        whyItMatters: '50% redundancy turns packet loss into a local algebra problem instead of a retransmission round-trip.',
+        metrics: ['FEC: 32 data + 32 coding', 'Recovery threshold: any 32 of 64']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred.rs#L121-L122']
     }
   ]
 }
 
 export const FORWARDING: ArchitectureComponent = {
   id: 'forwarding',
-  name: 'Forwarding Stage',
+  name: 'Forwarding (Gulf Stream)',
   icon: '➡️',
   category: 'tpu',
   layer: 'tpu',
   pipeline: 'tpu',
   position: 5,
   detail: {
-    purpose: 'Forwards received transactions to upcoming leaders when the node is not the current leader.',
-    role: 'Active when node is not producing blocks. Sorts packets by priority before forwarding.',
+    purpose: 'Solana\'s mempool-less push model: transactions travel toward whoever the schedule says leads next, instead of idling in a shared pool.',
+    role: '"Gulf Stream" is the informal name for that push model. On validators it runs as a one-hop Forwarding Stage fed by signature verification; RPC nodes do the same job via SendTransactionService pushes.',
     howItWorks: {
-      title: 'Forwarding Logic',
+      title: 'One Hop Toward Leadership',
       steps: [
-        'Check if node is current leader',
-        'If not leader: sort received packets by priority',
-        'Always forward TPU votes (consensus critical)',
-        'Non-vote transactions forwarded only if node has option enabled',
-        'One-hop limit: forwarding only to tpu_forwards port',
+        'Verified packets that this node will not process itself (not the scheduled leader for their slot) are queued here',
+        'The stage resolves upcoming leaders from the deterministic leader schedule',
+        'Packets forward exactly one hop — to the next leaders\' dedicated TPU-forwards QUIC endpoint',
+        'Votes always forward (consensus-critical); ordinary transactions follow node configuration',
+        'Buffering precedes leadership: packets simply wait until that leader\'s slot begins',
+        'There is no mempool dwell — blockhash expiry bounds a transaction\'s lifetime (~60–90s), after which it can never execute',
       ]
     },
-    whyItMatters: 'Ensures transactions reach the leader even when received by non-leader validators. Critical for Gulf Stream\'s mempool-less design.',
-    metrics: ['Forwarding limit: one hop', 'Outbound queue cap: 10,000 txs']
+    whyItMatters: 'When the slot starts, the leader\'s Banking Stage orders everything by fee and compute-unit price — never by who forwarded a packet or when. Push-model delivery and execution ordering are entirely separate concerns.',
+    metrics: [
+      'Forward limit: one hop (to TPU-forwards port)',
+      'Transaction lifetime bound: blockhash age limit',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tpu.rs#L338-L341',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/forwarding_stage.rs#L72',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L20',
+  ],
   subComponents: []
 }
 
@@ -612,7 +694,7 @@ export const SHRED_FETCH: ArchitectureComponent = {
   position: 0,
   detail: {
     purpose: 'Receives shreds from network peers via Turbine.',
-    role: 'Entry point of TVU pipeline. Binds to TVU port (8002 UDP) with SO_REUSEPORT for parallel processing.',
+    role: 'Entry point of TVU pipeline. Binds the turbine and repair sockets and hands raw shreds to signature verification.',
     howItWorks: {
       title: 'Shred Reception',
       steps: [
@@ -623,8 +705,11 @@ export const SHRED_FETCH: ArchitectureComponent = {
       ]
     },
     whyItMatters: 'SO_REUSEPORT enables parallel packet processing across CPU cores, critical for high-throughput shred reception.',
-    metrics: ['TVU port: 8002 UDP', 'SO_REUSEPORT for parallel sockets']
+    metrics: ['Sockets: turbine + repair', 'Feeds shred-sig-verify']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/shred_fetch_stage.rs#L1',
+  ],
   subComponents: []
 }
 
@@ -637,21 +722,30 @@ export const SHRED_SIG_VERIFY: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 1,
   detail: {
-    purpose: 'Verifies signatures on incoming shreds to ensure they come from the expected leader.',
-    role: 'Second stage of TVU. Verifies leader signatures on each shred.',
+    purpose: 'Proves each incoming shred was produced by the slot\'s rightful leader before anything touches blockstore.',
+    role: 'Second stage of TVU: verifies the leader\'s Ed25519 signature over the shred\'s FEC-set Merkle root, resolving the expected pubkey from the leader schedule.',
     howItWorks: {
       title: 'Shred Signature Verification',
       steps: [
         'Receive shreds from Shred Fetch',
-        'Verify Ed25519 signature against expected leader\'s public key',
-        'Check that signer matches the leader schedule for this slot',
-        'Discard shreds with invalid signatures',
-        'Pass valid shreds to Window Service',
+        'Extract the shred\'s Merkle proof and root from its payload',
+        'Resolve the slot\'s scheduled leader pubkey via the LeaderScheduleCache',
+        'Verify the Ed25519 signature over the Merkle root against that pubkey',
+        'Recently seen (pubkey, signature) pairs are LRU-cached to skip repeat work',
+        'Discard invalid shreds; pass valid ones to Window Service',
       ]
     },
-    whyItMatters: 'Prevents malicious validators from injecting fake shreds. Ensures only legitimate leader-produced data enters the blockstore.',
-    metrics: ['Signature verification: Ed25519']
+    whyItMatters: 'One signature per 64-shred set means verification stays cheap even at full throughput — and a forged shred cannot survive the Merkle-proof check against the scheduled leader.',
+    metrics: [
+      'Verified value: leader signature over the FEC-set Merkle root',
+      'Pubkey source: LeaderScheduleCache for the slot',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/sigverify_shreds.rs#L147',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/sigverify_shreds.rs#L82',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/shred/merkle.rs#L141-L142',
+  ],
   subComponents: []
 }
 
@@ -664,21 +758,29 @@ export const WINDOW_SERVICE: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 2,
   detail: {
-    purpose: 'Assembles complete blocks from received shreds and handles repair requests for missing data.',
-    role: 'Tracks which shreds have been received per slot, detects missing shreds, and initiates repair.',
+    purpose: 'Turns a trickle of arriving shreds into complete slots: dedup, erasure recovery, retransmission, and blockstore insertion.',
+    role: 'The TVU\'s assembly line — tracks each slot\'s shred window, rebuilds missing pieces from coding shreds, and forwards recovered data downstream.',
     howItWorks: {
-      title: 'Block Assembly',
+      title: 'Assembly & Recovery',
       steps: [
-        'Track received shreds per slot in a window',
-        'Detect missing shreds by comparing against expected range',
-        'Initiate repair requests for missing shreds',
-        'Assemble contiguous entries from received shreds',
-        'Feed assembled entries to Replay Stage',
+        'Track received shreds per slot in the window',
+        'Duplicate candidates are checked — including Merkle-root and chained-Merkle-root conflict detection for duplicate-slot evidence',
+        'Missing data shreds are reconstructed via ShredRecoveryContext when enough coding shreds arrive',
+        'Recovered data shreds are even retransmitted onward, so this node\'s recovery also feeds the tree below it',
+        'Complete shreds are inserted into Blockstore; assembled slots head to Replay Stage',
       ]
     },
-    whyItMatters: 'Turbine is best-effort. Window Service ensures complete block reconstruction through repair, maintaining data availability.',
-    metrics: ['Window size: configurable', 'Repair: on-demand']
+    whyItMatters: 'Turbine is best-effort, yet blocks must be exact. Recovery plus conflict tracking is what makes loss survivable and leader misbehavior provable.',
+    metrics: [
+      'Recovery: any 32 of 64 shreds per FEC set',
+      'Conflicts tracked: MerkleRoot / ChainedMerkleRoot',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L148-L162',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L219',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/window_service.rs#L444-L458',
+  ],
   subComponents: []
 }
 
@@ -691,23 +793,34 @@ export const REPLAY_STAGE: ArchitectureComponent = {
   pipeline: 'tvu',
   position: 3,
   detail: {
-    purpose: 'Executes transactions from assembled blocks against local state and reports results to consensus.',
-    role: 'Main loop of the validator. Connects ledger, runtime, AccountsDB, and consensus.',
+    purpose: 'Independently re-executes every received block and decides — through fork choice — which ones deserve a vote.',
+    role: 'The validator\'s main loop: verifies the PoH chain first, replays forks in parallel, freezes matching banks, and gates every vote through fork-choice checks.',
     howItWorks: {
       title: 'Replay Flow',
       steps: [
-        'Pull new blocks from Blockstore via Window Service',
-        'For each block: execute transactions against local Bank state',
-        'Use SVM/Sealevel runtime for parallel execution',
-        'Update AccountsDB with state changes',
-        'Report execution results to Consensus (Tower BFT)',
-        'Handle fork selection and rollback if needed',
-        'Roll back Bank to vote point and replay if fork switches',
+        'Completed slots arrive from Blockstore',
+        'Entry and PoH chains are verified first — every hash must link exactly',
+        'Transactions are then re-executed via the SVM library, the same code path the leader used',
+        'Two rayon pools run in parallel: replay_forks_threads across competing forks, replay_transactions_threads inside each bank',
+        'Banks whose results match the broadcast block are frozen',
+        'For each votable bank the fork-choice gate runs: lockout check → threshold check → propagation check → switch-proof if abandoning a fork',
+        'Passing votes go to VotingService; fully processed banks reach root handling (handle_votable_bank)',
+        'Conflicting Merkle roots between shreds are tracked as duplicate-slot evidence',
       ]
     },
-    whyItMatters: 'Replay Stage is where validators verify the leader\'s work. Without it, validators cannot participate in consensus.',
-    metrics: ['Main validator loop', 'Fork-aware: handles multiple competing chains']
+    whyItMatters: 'This is Solana\'s "trust but verify": nothing a leader claims is accepted until it has been recomputed here, hash by hash and transaction by transaction.',
+    metrics: [
+      'Parallel pools: replay_forks_threads / replay_transactions_threads',
+      'Vote gate order: lockouts → thresholds → propagation → switch proof',
+      'Duplicate threshold derived from SWITCH_FORK_THRESHOLD (0.38)',
+    ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L415-L416',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L736-L737',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L13-L15',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L3026',
+  ],
   subComponents: []
 }
 
@@ -732,8 +845,12 @@ export const RETRANSMIT: ArchitectureComponent = {
       ]
     },
     whyItMatters: 'Without retransmission, Turbine tree would only reach direct peers. Retransmission ensures full network coverage.',
-    metrics: ['DATA_PLANE_FANOUT: 200', 'Tree depth: 2-3 hops']
+    metrics: ['DATA_PLANE_FANOUT: 200', 'Max hops: MAX_NUM_TURBINE_HOPS = 4']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/retransmit_stage.rs#L659',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L48',
+  ],
   subComponents: []
 }
 
@@ -750,50 +867,51 @@ export const TURBINE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 4,
   detail: {
-    purpose: 'Propagates block data (shreds) from the leader to all validators efficiently.',
-    role: 'BitTorrent-inspired multi-layer tree propagation. 2-3 hops to reach all validators.',
+    purpose: 'Propagates block shreds from the leader to every validator through a small number of network hops.',
+    role: 'A BitTorrent-inspired, stake-weighted tree: each validator forwards to a fixed slice of downstream peers, so coverage grows exponentially with depth.',
     howItWorks: {
       title: 'Turbine Propagation',
       steps: [
-        'Leader breaks blocks into MTU-sized shreds (~1,228 bytes)',
-        'Reed-Solomon erasure coding: 32:32 FEC sets',
-        'Stake-weighted shuffle: higher-staked validators placed closer to leader',
-        'Per-shred tree: deterministic tree from seed (leader_id, slot, index)',
-        'Fan-out: each layer is 200x previous (DATA_PLANE_FANOUT = 200)',
-        '2-3 hops: leader → root → L1 → L2 reaches all validators',
-        'UDP transport for low latency (~100ms)',
+        'Leader hands broadcast-produced data and coding shreds to the tree',
+        'Data and coding shreds are interleaved so no subtree starves for either kind',
+        'For each shred, a deterministic tree is derived from (leader, slot, shred index) — everyone computes the same tree',
+        'Higher-staked validators sit closer to the root, keeping the critical path short',
+        'Each node retransmits to its downstream peers (DATA_PLANE_FANOUT = 200 per layer)',
+        'A handful of hops covers the whole cluster',
       ]
     },
-    whyItMatters: 'Turbine achieves O(√N) propagation instead of O(N). Critical for scaling to 1000+ validators.',
+    whyItMatters: 'Tree fan-out makes leader upload cost constant while reach grows exponentially — propagation that scales with the network instead of against it.',
     metrics: [
-      'DATA_PLANE_FANOUT: 200',
-      'Shred size: ~1,228 bytes',
-      'FEC: 32:32',
-      'Propagation: ~100ms',
-      'Tree depth: 2-3 hops',
+      'DATA_PLANE_FANOUT: 200 peers per layer',
+      'Deterministic per-shred trees — no negotiation',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L47',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tvu.rs#L86',
+  ],
   subComponents: [
     {
       id: 'stake-weighted-tree',
       name: 'Stake-Weighted Tree',
       icon: '🌳',
       detail: {
-        purpose: 'Constructs propagation tree with higher-staked validators closer to the leader.',
-        role: 'Ensures critical path (leader to supermajority) is as short as possible.',
+        purpose: 'Constructs the propagation tree with higher-staked validators closer to the leader.',
+        role: 'Stake-weighted, deterministically shuffled placement keeps the leader-to-supermajority path as short as possible.',
         howItWorks: {
           title: 'Tree Construction',
           steps: [
-            'Collect all validators and their stakes from Gossip',
-            'Shuffle validators using deterministic seed (slot, shred_index)',
-            'Place higher-staked validators in earlier layers',
-            'Each validator knows its position in the tree',
-            'Retransmit to 200 downstream peers in next layer',
+            'Collect validators and stakes from Gossip',
+            'Deterministically shuffle using the shred\'s seed (slot, index)',
+            'Sort so higher-staked validators land in earlier layers',
+            'Every validator computes its own position — no coordination needed',
+            'Retransmit downstream to your layer\'s peer slice',
           ]
         },
-        whyItMatters: 'Stake-weighted placement ensures 2/3 supermajority is reached in 2 hops, enabling fast confirmation.',
-        metrics: ['Fan-out: 200', 'Depth to supermajority: 2 hops']
-      }
+        whyItMatters: 'Weighted placement means the most-invested validators carry the hottest paths, and everyone can independently verify their position.',
+        metrics: ['Fan-out per layer: 200']
+      },
+      refs: ['https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L47']
     }
   ]
 }
@@ -811,46 +929,50 @@ export const SVM_PIPELINE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'The complete transaction execution pipeline within the Solana Virtual Machine.',
-    role: 'Entry point to the runtime. Manages parallel execution, account locking, and program invocation.',
+    purpose: 'Executes transactions: loads their accounts, runs each instruction, and applies the results to bank state.',
+    role: 'A library, not a pipeline stage. The same engine is invoked by Banking Stage consume-workers when producing a block and by ReplayStage when validating one.',
     howItWorks: {
-      title: 'SVM Execution Pipeline',
+      title: 'How SVM Executes a Batch',
       steps: [
-        '1. Block Processor: receives block, assigns transactions to worker threads',
-        '2. Transaction Scheduler: builds DAG of dependencies, enforces account locks',
-        '3. Transaction Processor: validates tx structure, loads accounts from AccountsDB',
-        '4. Instruction Processor: determines program type (Native or sBPF)',
-        '5. If Native: invoke directly. If sBPF: create VM instance and execute',
-        '6. Results committed to Bank state, locks released',
+        'A caller hands over a batch of transactions with account locks already held — Banking Stage consume-workers on the leader, ReplayStage during validation',
+        'Each transaction\'s accounts are loaded from AccountsDB caches into the execution context',
+        'Per instruction: built-in programs run as native Rust; on-chain programs run inside an sBPF virtual machine',
+        'Programs may invoke other programs via CPI, up to 5 frames deep',
+        'Execution results are applied to bank state and locks are released',
+        'Because both production and validation call this identical library, every validator agrees on outcomes',
       ]
     },
-    whyItMatters: 'SVM is Solana\'s execution engine. Its parallel execution model (account-level concurrency) is what enables 65,000+ TPS.',
+    whyItMatters: 'One engine, two callers: whoever executes it first — leader or validator — must reach the same result. That is what makes replayed blocks trustworthy.',
     metrics: [
-      'Max CPI depth: 5 (9 with SIMD-0268)',
-      'Max 64 txs per entry',
-      'Account-level parallelism',
+      'Max CPI depth: 5 (gated note: SIMD-0268 raises this to 9 once activated)',
+      'Account-level parallelism (locks held by the caller)',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L318',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/bank.rs#L1',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/execution_budget.rs#L7',
+  ],
   subComponents: [
     {
       id: 'block-processor',
-      name: 'Block Processor',
+      name: 'Block Processing (validation side)',
       icon: '🧱',
       detail: {
-        purpose: 'Entry point to the runtime. Receives blocks and assigns transactions to parallel worker threads.',
-        role: 'TransactionScheduler assigns transactions to threads based on account conflicts.',
+        purpose: 'Drives SVM over a received block\'s entries during replay, so validators independently reach the leader\'s results.',
+        role: 'The verification-side caller of the runtime: loads each entry\'s transactions and executes them against a candidate bank.',
         howItWorks: {
-          title: 'Block Processing',
+          title: 'Replaying a Block',
           steps: [
-            'TransactionScheduler builds priority DAG from pending transactions',
-            'Assigns non-conflicting transactions to parallel worker threads',
-            'Each thread acquires account locks before execution',
-            'Invokes Transaction Processor per transaction',
-            'Commits results and freezes slot state',
+            'A completed slot is read back from blockstore',
+            'Each entry\'s transactions are handed to the runtime in order',
+            'Account locks are acquired per transaction before execution',
+            'Results must match what the leader broadcast — any mismatch invalidates the block for this validator',
+            'When every entry succeeds, the bank is frozen',
           ]
         },
-        whyItMatters: 'Determines how many transactions can run in parallel. Optimal scheduling maximizes block utilization.',
-        metrics: ['Worker threads: 4 regular + 2 vote']
+        whyItMatters: 'This is the "trust but verify" half of Solana: no validator ever trusts a leader\'s claimed state; everyone recomputes it.',
+        metrics: ['Executes inside ReplayStage\'s parallel thread pools']
       }
     },
     {
@@ -930,6 +1052,10 @@ export const SBPF_VM: ArchitectureComponent = {
       'Based on rBPF library (Rust eBPF)',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/programs/bpf_loader/src/lib.rs#L93',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/loaded_programs.rs#L1',
+  ],
   subComponents: [
     {
       id: 'syscalls',
@@ -991,6 +1117,9 @@ export const CPI: ArchitectureComponent = {
       'Blocked programs: native_loader, bpf_loader, precomploys',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/invoke_context.rs#L220',
+  ],
   subComponents: []
 }
 
@@ -1017,14 +1146,14 @@ export const COMPUTE_BUDGET: ArchitectureComponent = {
     },
     whyItMatters: 'Compute budget prevents DoS via unlimited computation. Priority fees create a market for block space.',
     metrics: [
-      'Signature cost: 720 CUs',
-      'Write lock: 300 CUs per account',
-      'Data bytes: 4 CUs per byte',
-      'Default instruction: 200,000 CU',
-      'Max transaction: 1,400,000 CU',
-      'Block limit: 48M CU (100M with SIMD)',
+      'Default instruction budget: 200,000 CU',
+      'Max transaction budget: 1,400,000 CU',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/execution_budget.rs#L26',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/compute-budget/src/compute_budget_limits.rs#L31',
+  ],
   subComponents: [
     {
       id: 'fee-structure',
@@ -1068,26 +1197,30 @@ export const POH: ArchitectureComponent = {
   position: 0,
   detail: {
     purpose: 'Provides a verifiable, sequential clock that timestamps events before consensus.',
-    role: 'SHA-256 VDF. Not a consensus mechanism itself — it is a pre-consensus clock.',
+    role: 'A continuous SHA-256 hash chain. Not a consensus mechanism itself — it is the shared clock every validator recomputes for itself.',
     howItWorks: {
       title: 'PoH Mechanism',
       steps: [
         'Single-threaded SHA-256 loop on one core per validator',
-        'h₀ = genesis_hash',
-        'hₙ = SHA-256(hₙ₋₁)',
-        'Each hash proves real time has passed since previous hash',
-        '64 ticks per slot (~400ms)',
-        'Final tick hash = block hash',
+        'h₀ = genesis hash',
+        'hₙ = SHA-256(hₙ₋₁) — each value depends only on the one before',
+        'Transaction batches and ticks are folded into this chain as they happen',
+        'Because each step needs the previous one, N hashes prove N units of sequential work',
+        '64 ticks per slot (~400ms); the final tick hash closes the slot',
       ]
     },
-    whyItMatters: 'PoH proves chronological order without validator communication. Reduces consensus messaging overhead by providing a shared clock.',
+    whyItMatters: 'PoH gives every validator an identical, independently checkable timeline — no timestamp committee needed. Consensus then only has to agree on validity and fork choice.',
     metrics: [
       'Hash: SHA-256',
       'Ticks per slot: 64',
       'Slot duration: ~400ms',
-      'Output: 32 bytes per tick',
+      'Output: 32 bytes per hash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_service.rs#L120',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/poh/src/poh_recorder.rs#L127',
+  ],
   subComponents: []
 }
 
@@ -1100,76 +1233,158 @@ export const TOWER_BFT: ArchitectureComponent = {
   pipeline: 'shared',
   position: 1,
   detail: {
-    purpose: 'Achieves Byzantine Fault Tolerant consensus using stake-weighted voting.',
-    role: 'Vote tower with lockout periods. 2/3 supermajority required for confirmation.',
+    purpose: 'Turns thousands of independent validators into one agreed-upon history using stake-weighted voting.',
+    role: 'Each validator keeps a "tower": a stack of votes whose lockout periods double as they stack up, making reversals progressively more expensive.',
     howItWorks: {
       title: 'Tower BFT Consensus',
       steps: [
-        '1. Validator receives block from Replay Stage',
-        '2. Validates block correctness',
-        '3. Casts vote via on-chain vote transaction',
-        '4. Vote added to tower with lockout = 2 slots',
-        '5. All previous lockouts double (exponential growth)',
-        '6. Cannot vote on non-ancestor without waiting out lockout',
-        '7. Fork choice: heaviest subtree by stake-weighted votes',
-        '8. Supermajority (≥2/3 stake) on same fork = confirmed',
+        'Replay hands the tower a bank it has fully validated',
+        'Fork choice (heaviest stake-weighted subtree) decides whether voting on it is allowed',
+        'The vote goes on-chain as a transaction and is pushed to VotingService',
+        'First vote locks this fork for 2 slots; each further consecutive vote doubles the previous lockout',
+        'A validator cannot vote on a conflicting fork until its lockouts expire',
+        'When ≥2/3 of stake has voted for a slot: optimistic confirmation',
+        'When the tower\'s 31-deep stack is full, the oldest vote pops off and becomes the validator\'s rooted point',
+        'Finalized = rooted and ≥2/3 of stake is also rooted there',
       ]
     },
-    whyItMatters: 'Tower BFT is Solana\'s consensus mechanism. It combines PoS voting with PoH timestamps for fast, deterministic finality.',
+    whyItMatters: 'Lockout doubling means recent history can still flip, but anything deeper than a few confirmations would require waiting years — that gradient IS finality.',
     metrics: [
-      'Initial lockout: 2 slots (~800ms)',
-      'Max lockout: 2^32 slots (~54 years)',
-      'Supermajority: ≥2/3 stake',
-      'Votes per day: ~216,000',
-      'Vote cost: ~2-3 SOL per epoch',
+      'Initial lockout: 2 slots (~800ms), ×2 per consecutive confirmation',
+      'Stack depth: 31 votes max (oldest becomes root)',
+      'Optimistic confirmation: ≥2/3 stake voted (VOTE_THRESHOLD_SIZE)',
+      'Switch-fork threshold: 38% of stake required to abandon a fork',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L48',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L70',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus.rs#L158',
+  ],
   subComponents: [
     {
       id: 'vote-tower',
       name: 'Vote Tower',
       icon: '🗳️',
       detail: {
-        purpose: 'Sequential stack of votes with exponentially increasing lockouts.',
-        role: 'Each vote confirms a fork. Lockout doubles with each vote, making deep history irreversible.',
+        purpose: 'The validator\'s personal voting history — a stack where every vote doubles its commitment.',
+        role: 'Consecutive votes stack up; each new vote doubles the lockout of every vote below it.',
         howItWorks: {
-          title: 'Vote Tower Mechanics',
+          title: 'Lockout Doubling',
           steps: [
-            'Vote 1: lockout = 2 slots (~800ms)',
-            'Vote 2: lockout = 4 slots (~1.6s)',
-            'Vote 3: lockout = 8 slots (~3.2s)',
-            '...',
-            'Vote 32: lockout = 2^32 slots (~54 years)',
-            'Exponential growth makes deep history irreversible',
-            'Deque oldest vote when tower is full (32 votes)',
+            'Vote on slot N: locked for 2 slots',
+            'Vote again on a descendant: previous lockout doubles to 4, new vote locks 2',
+            'Third consecutive vote: lockouts run 8 / 4 / 2',
+            'In general the n-th consecutive vote is locked for 2ⁿ slots',
+            'A conflicting fork stays unvotable until all covering lockouts expire',
+            'At 31 stacked votes the tower is full: the oldest vote pops off and becomes the root',
           ]
         },
-        whyItMatters: 'Exponential lockout growth means the deeper a block is confirmed, the more economically infeasible it is to revert.',
-        metrics: ['Max tower depth: 32', 'Lockout growth: exponential (2^n)']
-      }
+        whyItMatters: 'Two confirmations cost seconds to revert; thirty would take decades. The exponential gradient lets the cluster finalize quickly while making attacks exponentially pricier.',
+        metrics: ['Stack depth: 31 (MAX_LOCKOUT_HISTORY)', 'n-th consecutive lockout: 2ⁿ slots']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L70',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus/tower_vote_state.rs#L161',
+      ]
     },
     {
       id: 'fork-choice',
       name: 'Fork Choice Rule',
       icon: '🌲',
       detail: {
-        purpose: 'Determines which fork is the canonical chain when multiple competing forks exist.',
-        role: 'Heaviest Subtree Fork Choice (HSFC). Forks weighted by stake-weighted votes.',
+        purpose: 'Picks the canonical fork when competing versions of the next slot exist.',
+        role: 'Heaviest Subtree Fork Choice: forks are weighted by the stake that voted for them; voting itself is gated by this rule.',
         howItWorks: {
-          title: 'Fork Selection',
+          title: 'Fork Selection & Voting Gate',
           steps: [
-            'Each fork has a weight = sum of stake that has voted for it',
-            'Choose fork with highest weight (stake-weighted votes)',
-            'If equal weight: choose fork with more recent vote',
-            'Switching threshold: >38% of votes on alternative forks required',
-            'Minimum cluster commitment at depth 8: 50%+',
+            'Every fork\'s weight = total stake that has voted along it',
+            'Heaviest fork wins as the working canonical fork',
+            'Before any vote: lockout check (are we still locked elsewhere?),',
+            '…threshold check (has enough stake confirmed our target?),',
+            '…and propagation check (would our vote actually reach the cluster?)',
+            'Switching away needs 38% of stake committed to the alternative (switch proof)',
           ]
         },
-        whyItMatters: 'Fork choice ensures all honest validators eventually agree on the same chain. Critical for liveness.',
-        metrics: ['Switching threshold: >38%', 'Min commitment at depth 8: 50%+']
-      }
+        whyItMatters: 'Fork choice is what makes votes safe rather than reckless: the same rule that picks the chain also gates every single vote.',
+        metrics: ['Switch threshold: SWITCH_FORK_THRESHOLD = 0.38', 'Duplicate-threshold derived from it (1 − 0.38 − 0.1)']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/consensus.rs#L158',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L129-L130',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/replay_stage.rs#L13-L15',
+      ]
     }
   ]
+}
+
+export const CLUSTER_INFO_VOTE_LISTENER: ArchitectureComponent = {
+  id: 'cluster-info-vote-listener',
+  name: 'Cluster Info Vote Listener',
+  icon: '📥',
+  category: 'consensus',
+  layer: 'consensus',
+  pipeline: 'shared',
+  position: 4,
+  detail: {
+    purpose: 'Receives other validators\' votes arriving over gossip, verifies them, and turns them into confirmation signals.',
+    role: 'Polls the gossip table for new cluster votes, verifies each signature on CPU, and keeps per-slot vote trackers that fire threshold events.',
+    howItWorks: {
+      title: 'Inbound Vote Processing',
+      steps: [
+        'A receive loop polls gossip for newly available votes (get_votes with a cursor)',
+        'Every incoming vote is CPU-verified — signature and vote-account integrity',
+        'Verified votes are recorded in per-slot VoteTracker structures',
+        'When a slot\'s tracked votes pass 2/3 of stake, optimistic confirmation fires',
+        'Duplicate-confirmation levels are tracked separately for duplicate-slot evidence',
+        'When this validator is leader (or about to be), verified gossip votes are injected into Banking Stage\'s vote lane so they land in our blocks',
+      ]
+    },
+    whyItMatters: 'Votes reach a validator two ways — inside received blocks and over gossip. This listener is the gossip half; without it, confirmation levels would only move as fast as block delivery.',
+    metrics: [
+      'Two return routes handled: gossip + replayed blocks',
+      'Optimistic confirmation threshold: ≥2/3 stake',
+    ]
+  },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L510',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L529',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L128-L142',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+  ],
+  subComponents: []
+}
+
+export const VOTING_SERVICE: ArchitectureComponent = {
+  id: 'voting-service',
+  name: 'Voting Service',
+  icon: '📤',
+  category: 'consensus',
+  layer: 'consensus',
+  pipeline: 'shared',
+  position: 5,
+  detail: {
+    purpose: 'Publishes this validator\'s own votes outward so the cluster can count them.',
+    role: 'Takes vote decisions produced by ReplayStage/tower, makes sure the tower is durably saved first, then sends the vote on both outbound paths.',
+    howItWorks: {
+      title: 'Outbound Vote Path',
+      steps: [
+        'ReplayStage hands over a decided vote operation',
+        'The tower state is persisted to storage first — a crash must never lose lockouts',
+        'The vote is signed and pushed into gossip for cluster-wide visibility',
+        'Simultaneously it is submitted as a transaction toward upcoming leaders via the TPU-vote lane',
+        'Other validators\' listeners pick it up from either route and confirmation accounting begins',
+      ]
+    },
+    whyItMatters: 'A vote only counts once others see it. Persist-before-send is the safety trick: even a crash mid-vote leaves the tower consistent.',
+    metrics: ['Two egress paths: gossip push + TPU-vote submission']
+  },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/tvu.rs#L121-L122',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/cluster_info_vote_listener.rs#L73',
+  ],
+  subComponents: []
 }
 
 export const STATUS_CACHE: ArchitectureComponent = {
@@ -1181,21 +1396,26 @@ export const STATUS_CACHE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 2,
   detail: {
-    purpose: 'Deduplicates transactions by tracking recently processed transaction signatures.',
-    role: 'Prevents duplicate processing within a window. Located between SigVerify and Banking Stage.',
+    purpose: 'Remembers the outcome of recently processed transactions so nothing executes twice and every client gets an answer.',
+    role: 'A lookup table consulted while transactions are consumed in the Banking Stage, and by RPC when clients poll for results.',
     howItWorks: {
-      title: 'Deduplication',
+      title: 'Exactly-Once Processing',
       steps: [
-        'When transaction is processed, record its signature in status cache',
-        'When same signature arrives again, check cache',
-        'If found: discard (duplicate)',
-        'If not found: process normally',
-        'Cache entries expire after finalization window',
+        'Before executing, Banking Stage validates the transaction\'s recent blockhash and fee payer (check_fee_payer_unlocked)',
+        'A blockhash that has aged out of history means the transaction expired — it is rejected',
+        'When a transaction executes, its signature and result are recorded here',
+        'If the identical transaction arrives again, the recorded result short-circuits re-execution',
+        'RPC getSignatureStatuses reads this table to answer "did my transaction land?"',
+        'Entries expire once their slot is deeply finalized',
       ]
     },
-    whyItMatters: 'Prevents wasted compute on re-submitted transactions. Critical for DoS resistance.',
+    whyItMatters: 'Gives the chain exactly-once execution and gives clients instant feedback — the same structure serves both jobs.',
     metrics: ['Cache window: spans recent finalized slots']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L474',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/commitment.rs#L9',
+  ],
   subComponents: []
 }
 
@@ -1212,29 +1432,29 @@ export const ACCOUNTS_DB: ArchitectureComponent = {
   pipeline: 'shared',
   position: 0,
   detail: {
-    purpose: 'Persistent storage and indexing of all on-chain account data.',
-    role: 'Core data layer. Memory-mapped files, sharded index, write/read caches, background cleanup.',
+    purpose: 'Durable home of on-chain account data — written asynchronously, well after execution has moved on.',
+    role: 'Execution writes deltas into bank state first; AccountsDB catches up in the background as banks freeze and roots advance, consolidated by the AccountsBackgroundService.',
     howItWorks: {
       title: 'AccountsDB Architecture',
       steps: [
-        '1. Accounts stored in AppendVecs (memory-mapped files per slot)',
-        '2. Account Index: maps Pubkey → Vec<(Slot, file_id, offset)>',
-        '3. Index sharded into 8,192 bins by first N bits of pubkey',
-        '4. Write Cache: per-slot caching before flushing to disk',
-        '5. Read Cache: caches full account data after first disk read',
-        '6. Background Flushing: moves accounts from write cache to disk',
-        '7. Background Cleaning: removes dead accounts (zero lamports)',
-        '8. Background Shrinking: compacts account files',
+        'Executed transactions update in-memory bank state — nothing waits for disk here',
+        'When a bank freezes at slot end, its cached accounts become flush candidates',
+        'AccountsBackgroundService flushes write-cache entries into AppendVecs on disk',
+        'Around root advancement it also cleans dead accounts and squashes/consolidates older storages',
+        'Account Index maps each Pubkey to its storage locations across those files',
+        'Read cache keeps hot accounts in memory after their first disk touch',
       ]
     },
-    whyItMatters: 'AccountsDB is the source of truth for all on-chain state. Performance directly impacts TPS.',
+    whyItMatters: 'Because durability is decoupled from execution, neither block production nor replay ever stalls on I/O — finality triggers the write-back instead.',
     metrics: [
-      'Index bins: 8,192',
-      'Write cache limit: 15GB default',
-      'File format: memory-mapped AppendVecs',
-      '64-byte alignment for all entries',
+      'Storage: memory-mapped AppendVecs',
+      'Background phases: flush → clean → squash',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/accounts_background_service.rs#L426',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/validator.rs#L1045',
+  ],
   subComponents: [
     {
       id: 'append-vecs',
@@ -1306,6 +1526,9 @@ export const BLOCKSTORE: ArchitectureComponent = {
     whyItMatters: 'Blockstore enables fork-aware storage. Validators can store data for multiple competing forks simultaneously.',
     metrics: ['Backend: RocksDB', 'Fork-able key space', 'SlotMeta: per-slot metadata']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/blockstore.rs#L282',
+  ],
   subComponents: []
 }
 
@@ -1318,25 +1541,28 @@ export const BANK: ArchitectureComponent = {
   pipeline: 'shared',
   position: 2,
   detail: {
-    purpose: 'In-memory representation of account state at a specific slot.',
-    role: 'Snapshot of all accounts and balances at start of block. Used by both Banking Stage and Replay Stage.',
+    purpose: 'The in-memory state machine for one slot: all account balances plus the transaction results being applied to them.',
+    role: 'Execution\'s immediate destination — Banking Stage consume-workers and ReplayStage both apply deltas here; durable storage catches up later.',
     howItWorks: {
       title: 'Bank State',
       steps: [
-        'Created per-slot as a checkpoint',
-        'Contains: prev_hash (PoH chain), tick_height, votes',
-        'blockhash_queue: 300 most recent blockhashes (valid for 151 slots)',
-        'Provides interface to apply transactions and record results',
-        'Deterministic: same transactions in same order = identical Bank state',
+        'A child bank is created per slot, checkpointing its parent',
+        'Carries the PoH hash chain position, tick height, and vote accounts',
+        'Tracks a bounded window of recent blockhashes — a transaction is valid only while its blockhash is young enough to process',
+        'Provides the interface transactions execute against (load_and_execute_transactions)',
+        'Fully deterministic: same inputs in same order always produce identical state',
       ]
     },
-    whyItMatters: 'Bank is the fork point. When fork switch occurs, validator rolls back to last voted Bank and replays.',
+    whyItMatters: 'Banks are fork points: competing slots build competing banks, and whichever branch gets rooted is the one whose state eventually reaches AccountsDB.',
     metrics: [
-      'Blockhash queue: 300 entries',
-      'Blockhash validity: 151 slots (~60-90s)',
-      'Deterministic state',
+      'One bank per slot (child of parent-slot bank)',
+      'Deterministic state transitions',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/runtime/src/bank.rs#L1',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/banking_stage/consumer.rs#L318',
+  ],
   subComponents: []
 }
 
@@ -1364,6 +1590,9 @@ export const SNAPSHOT: ArchitectureComponent = {
     whyItMatters: 'Without snapshots, new validators would need to replay from genesis (billions of slots). Snapshots enable fast bootstrap.',
     metrics: ['Full snapshots + incremental snapshots', 'Background generation']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/snapshot_packager_service.rs#L30',
+  ],
   subComponents: []
 }
 
@@ -1398,10 +1627,12 @@ export const NATIVE_PROGRAMS: ArchitectureComponent = {
     whyItMatters: 'Native programs are executed directly by the runtime (not via sBPF VM). They provide the foundational primitives for all on-chain activity.',
     metrics: [
       'System Program: most fundamental',
-      'Vote Program: ~216,000 votes/day/validator',
       'Precompiles: Ed25519, Secp256k1, Secp256r1',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/programs/bpf_loader/src/lib.rs#L93',
+  ],
   subComponents: [
     {
       id: 'precompiles',
@@ -1440,23 +1671,61 @@ export const EPOCH_SCHEDULE: ArchitectureComponent = {
   pipeline: 'shared',
   position: 3,
   detail: {
-    purpose: 'Defines time boundaries for leader rotation and stake updates.',
-    role: 'Epoch = 432,000 slots (~2-3 days). Leader schedule recomputed at epoch boundaries.',
+    purpose: 'Divides time into epochs and defines how leader slots are assigned within them.',
+    role: 'Pure scheduling math: derives the leader rotation deterministically from epoch stakes — independent of consensus voting.',
     howItWorks: {
-      title: 'Epoch Structure',
+      title: 'From Stakes to Leader Slots',
       steps: [
-        'Epoch = 432,000 slots',
-        'Slot duration: ~400ms',
-        'Epoch duration: ~2-3 days',
-        'Leader schedule recomputed at epoch boundaries',
-        'Stake distribution snapshots at epoch boundaries',
-        '2 epochs ahead: schedule is known',
+        'An epoch is 432,000 slots (~2 days at ~400ms per slot)',
+        'At each epoch boundary the validator stakes are snapshotted',
+        'Stakes are sorted and fed into a ChaCha RNG seeded by the epoch',
+        'Stake-weighted draws assign NUM_CONSECUTIVE_LEADER_SLOTS = 4 consecutive slots per pick',
+        'The schedule is computed one epoch ahead, so every validator knows all future leaders',
+        'It is cached in the LeaderScheduleCache and refreshed as roots advance',
+        'Consumers: PoH recorder (would_be_leader), shred signature verification, turbine trees, repair, forwarding',
       ]
     },
-    whyItMatters: 'Epoch boundaries are the coordination points for the entire cluster. All state transitions happen at epoch boundaries.',
-    metrics: ['Epoch: 432,000 slots (~2-3 days)', 'Schedule known: 2 epochs ahead']
+    whyItMatters: 'Because rotation is computed from a stake snapshot — not negotiated — every validator independently derives the identical schedule. Slot ownership is publicly predictable without any election traffic.',
+    metrics: [
+      'Consecutive slots per leader draw: 4',
+      'Computed: one epoch ahead',
+      'Epoch: 432,000 slots (~2 days)',
+    ]
   },
-  subComponents: []
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L20',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L44',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L60',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/leader_schedule_cache.rs#L44-L62',
+  ],
+  subComponents: [
+    {
+      id: 'leader-schedule-derivation',
+      name: 'Leader Schedule Derivation',
+      icon: '🎲',
+      detail: {
+        purpose: 'Shows exactly how stake weights become slot assignments.',
+        role: 'A deterministic sampling loop: same stakes + same epoch seed ⇒ byte-identical schedule on every validator.',
+        howItWorks: {
+          title: 'Derivation Algorithm',
+          steps: [
+            'Snapshot validator → stake pairs for the target epoch',
+            'Sort entries so iteration order is stable',
+            'Seed a ChaCha RNG with the epoch number',
+            'Draw a winner proportional to stake; that leader gets 4 consecutive slots',
+            'Repeat until the epoch\'s slots are fully assigned',
+            'No gossip needed to distribute it — everyone recomputes the same answer',
+          ]
+        },
+        whyItMatters: 'More stake ⇒ more leader turns, yet the process stays trustless: randomness is seeded deterministically rather than drawn from an unpredictable source.',
+        metrics: ['RNG: rand_chacha::ChaChaRng, seed = epoch']
+      },
+      refs: [
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L8',
+        'https://github.com/anza-xyz/agave/blob/v4.2.1/leader-schedule/src/lib.rs#L60',
+      ]
+    }
+  ]
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1465,7 +1734,7 @@ export const EPOCH_SCHEDULE: ArchitectureComponent = {
 
 export const ALL_COMPONENTS: ArchitectureComponent[] = [
   // Networking
-  QUIC_STREAMER, GULF_STREAM, GOSSIP, REPAIR, TURBINE,
+  RPC_API, QUIC_STREAMER, GOSSIP, REPAIR, TURBINE,
   // TPU Pipeline
   TPU_FETCH, SIG_VERIFY, BANKING_STAGE, POH_RECORDING, BROADCAST, FORWARDING,
   // TVU Pipeline
@@ -1473,7 +1742,7 @@ export const ALL_COMPONENTS: ArchitectureComponent[] = [
   // Runtime
   SVM_PIPELINE, SBPF_VM, CPI, COMPUTE_BUDGET,
   // Consensus
-  POH, TOWER_BFT, STATUS_CACHE, EPOCH_SCHEDULE,
+  POH, TOWER_BFT, CLUSTER_INFO_VOTE_LISTENER, VOTING_SERVICE, STATUS_CACHE, EPOCH_SCHEDULE,
   // Storage
   ACCOUNTS_DB, BLOCKSTORE, BANK, SNAPSHOT,
   // Programs

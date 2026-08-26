@@ -159,7 +159,7 @@ function AnnotationBadge({ annotation, index }: { annotation: { type: string; co
 
   // Extract file path from sourceRef URL for display
   const displayRef = annotation.sourceRef
-    .replace('https://github.com/anza-xyz/agave/blob/v3.1.8/', '')
+    .replace('https://github.com/anza-xyz/agave/blob/v4.2.1/', '')
     .replace('https://github.com/', '')
 
   return (
@@ -172,13 +172,13 @@ function AnnotationBadge({ annotation, index }: { annotation: { type: string; co
         <div className="flex-1 min-w-0">
           <span className="text-[10px] font-bold uppercase opacity-70">{annotation.type}</span>
           <p className="text-xs leading-snug mt-0.5">{annotation.content}</p>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[9px] opacity-50 font-mono">// REF: {displayRef}</span>
+          <div className="flex items-start gap-1.5 mt-1 min-w-0">
+            <span className="text-[9px] opacity-50 font-mono break-all min-w-0">// REF: {displayRef}</span>
             <a
               href={annotation.sourceRef}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              className="text-[9px] text-blue-400 hover:text-blue-300 hover:underline transition-colors shrink-0"
               title="Open in GitHub"
             >
               ↗

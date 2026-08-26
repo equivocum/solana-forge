@@ -20,6 +20,9 @@ Expose: keypair generation (ed25519), message signing, signature verification, h
 ### VI. RPC/Validator Separation
 Enforce architectural boundary: **Client** builds/signs tx → **RPC** forwards, simulates, subscribes → **Validator** executes, votes, produces blocks. No direct client→validator calls. Each layer has distinct responsibility and failure modes.
 
+### VII. Incremental Reviewable Changes
+All changes are applied step by step. Each step must be fully complete — implemented, tested, and type-checked green, with no partial state carried forward — before the next step begins. Each committed change unit MUST remain within 500 changed lines for easier review; larger corrections MUST be split into ordered sub-commits.
+
 ## Visualization Standards
 
 All visualizations must follow these standards:
@@ -91,4 +94,4 @@ All changes to this constitution and project code MUST follow Git Flow:
 4. **PR**: Open Pull Request referencing issue; require CI pass and self-review
 5. **Merge**: Squash merge to `main` after approval; delete branch
 
-**Version**: 1.0.1 | **Ratified**: 2026-08-18 | **Last Amended**: 2026-08-18
+**Version**: 1.1.0 | **Ratified**: 2026-08-18 | **Last Amended**: 2026-08-25
