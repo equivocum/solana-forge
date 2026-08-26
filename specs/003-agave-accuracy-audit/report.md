@@ -93,6 +93,25 @@ Legend: ✅ anchor verified against tag content. ⏳ = finalize during the ownin
 
 *(Rows F-01…F-21 seeded by T003; dispositions land with their correcting commits.)*
 
+## Citation Spot-Check (T025 — SC-002)
+
+Method: each sampled permalink's `path#L<n>` was resolved against tag `v4.2.1` content directly (local clone, `git show v4.2.1:<path>` line `<n>`) — equivalent to opening the GitHub blob at that anchor, since raw and blob line numbers are identical. **Result: 12/12 sampled links resolve and support their claims.**
+
+| # | Sampled link (from) | Line content at v4.2.1 | Verdict |
+|---|---------------------|------------------------|---------|
+| 1 | perf/src/sigverify.rs#L15 (sig-verify) | `VERIFY_PACKET_CHUNK_SIZE: usize = 128` | ✓ |
+| 2 | core/src/banking_stage.rs#L609 (banking-stage) | VoteWorker `tpu_vote_receiver` wiring | ✓ |
+| 3 | poh/src/poh_service.rs#L120 (poh-recording) | thread name `"solPohTickProd"` | ✓ |
+| 4 | ledger/src/shred.rs#L121 (broadcast) | `DATA_SHREDS_PER_FEC_BLOCK = 32` | ✓ |
+| 5 | ledger/src/shred/merkle.rs#L141 (broadcast/shred-sig-verify) | `chained_merkle_root()` accessor | ✓ |
+| 6 | core/src/consensus/tower_vote_state.rs#L70 (tower-bft) | `fn double_lockouts` | ✓ |
+| 7 | runtime/src/commitment.rs#L9 (tower-bft/listener) | `VOTE_THRESHOLD_SIZE = 2/3` | ✓ |
+| 8 | leader-schedule/src/lib.rs#L20 (epoch-schedule) | `NUM_CONSECUTIVE_LEADER_SLOTS = 4` | ✓ |
+| 9 | core/src/cluster_info_vote_listener.rs#L529 (listener) | `cluster_info.get_votes(&mut cursor)` | ✓ |
+| 10 | core/src/validator.rs#L1303 (rpc-api) | `JsonRpcService::new_with_config` | ✓ |
+| 11 | send-transaction-service/…rs#L60 (rpc-api) | `pub struct SendTransactionService` | ✓ |
+| 12 | turbine/src/cluster_nodes.rs#L47 (turbine) | `DATA_PLANE_FANOUT = 200` | ✓ |
+
 ## Disposition Rules
 - Each row reaches exactly one terminal state: `corrected-in-app` | `labeled-simplification` | `deferred:<rationale>` (SC-003).
 - Rows ride along the commit that implements their correction (FR-021); suite+tsc green required (FR-022).
