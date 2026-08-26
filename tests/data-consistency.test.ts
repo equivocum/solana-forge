@@ -107,4 +107,16 @@ describe('Data consistency', () => {
     expect(LAYERS.consensus.some(c => c.id === 'cluster-info-vote-listener')).toBe(true)
     expect(LAYERS.consensus.some(c => c.id === 'voting-service')).toBe(true)
   })
+
+  it('every component carries ≥1 pinned v4.2.1 citation with correct grammar (C-1/C-5)', () => {
+    const REF_RE =
+      /^https:\/\/github\.com\/anza-xyz\/agave\/blob\/v4\.2\.1\/[A-Za-z0-9_/.-]+(#L\d+(-L\d+)?)?$/
+    ALL_COMPONENTS.forEach(c => {
+      expect(c.refs, `${c.id} has no refs`).toBeDefined()
+      expect(c.refs!.length, `${c.id} needs ≥1 ref`).toBeGreaterThanOrEqual(1)
+      c.refs!.forEach(r => {
+        expect(REF_RE.test(r), `${c.id} bad citation grammar: ${r}`).toBe(true)
+      })
+    })
+  })
 })

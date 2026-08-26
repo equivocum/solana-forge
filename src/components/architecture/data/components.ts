@@ -195,6 +195,9 @@ export const GOSSIP: ArchitectureComponent = {
       'Data types: ContactInfo, Vote, SnapshotHashes, EpochSlots, DuplicateShred, NodeInstance, Version',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/gossip/src/cluster_info.rs#L177',
+  ],
   subComponents: [
     {
       id: 'crds',
@@ -243,6 +246,9 @@ export const REPAIR: ArchitectureComponent = {
     whyItMatters: 'Turbine is best-effort. Repair ensures data availability even when network partitions or packet loss occur. Critical for liveness.',
     metrics: ['Repair requests are on-demand', 'serve_repair port advertised via ContactInfo']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/repair/repair_service.rs#L603',
+  ],
   subComponents: []
 }
 
@@ -277,6 +283,9 @@ export const TPU_FETCH: ArchitectureComponent = {
       'SO_REUSEPORT for parallel socket binding',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/fetch_stage.rs#L72',
+  ],
   subComponents: []
 }
 
@@ -698,6 +707,9 @@ export const SHRED_FETCH: ArchitectureComponent = {
     whyItMatters: 'SO_REUSEPORT enables parallel packet processing across CPU cores, critical for high-throughput shred reception.',
     metrics: ['TVU port: 8002 UDP', 'SO_REUSEPORT for parallel sockets']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/shred_fetch_stage.rs#L1',
+  ],
   subComponents: []
 }
 
@@ -835,6 +847,10 @@ export const RETRANSMIT: ArchitectureComponent = {
     whyItMatters: 'Without retransmission, Turbine tree would only reach direct peers. Retransmission ensures full network coverage.',
     metrics: ['DATA_PLANE_FANOUT: 200', 'Tree depth: 2-3 hops']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/retransmit_stage.rs#L659',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/cluster_nodes.rs#L48',
+  ],
   subComponents: []
 }
 
@@ -1036,6 +1052,10 @@ export const SBPF_VM: ArchitectureComponent = {
       'Based on rBPF library (Rust eBPF)',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/programs/bpf_loader/src/lib.rs#L93',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/loaded_programs.rs#L1',
+  ],
   subComponents: [
     {
       id: 'syscalls',
@@ -1097,6 +1117,9 @@ export const CPI: ArchitectureComponent = {
       'Blocked programs: native_loader, bpf_loader, precomploys',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/invoke_context.rs#L220',
+  ],
   subComponents: []
 }
 
@@ -1131,6 +1154,10 @@ export const COMPUTE_BUDGET: ArchitectureComponent = {
       'Block limit: 48M CU (100M with SIMD)',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/program-runtime/src/execution_budget.rs#L26',
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/compute-budget/src/compute_budget_limits.rs#L31',
+  ],
   subComponents: [
     {
       id: 'fee-structure',
@@ -1503,6 +1530,9 @@ export const BLOCKSTORE: ArchitectureComponent = {
     whyItMatters: 'Blockstore enables fork-aware storage. Validators can store data for multiple competing forks simultaneously.',
     metrics: ['Backend: RocksDB', 'Fork-able key space', 'SlotMeta: per-slot metadata']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/ledger/src/blockstore.rs#L282',
+  ],
   subComponents: []
 }
 
@@ -1564,6 +1594,9 @@ export const SNAPSHOT: ArchitectureComponent = {
     whyItMatters: 'Without snapshots, new validators would need to replay from genesis (billions of slots). Snapshots enable fast bootstrap.',
     metrics: ['Full snapshots + incremental snapshots', 'Background generation']
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/snapshot_packager_service.rs#L30',
+  ],
   subComponents: []
 }
 
