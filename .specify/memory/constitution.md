@@ -23,6 +23,12 @@ Enforce architectural boundary: **Client** builds/signs tx → **RPC** forwards,
 ### VII. Incremental Reviewable Changes
 All changes are applied step by step. Each step must be fully complete — implemented, tested, and type-checked green, with no partial state carried forward — before the next step begins. Each committed change unit MUST remain within 500 changed lines for easier review; larger corrections MUST be split into ordered sub-commits.
 
+### VIII. Reuse First, No Duplication
+Before adding any new code, make a best effort to reuse existing components, hooks, services, styles, and data exports. When reuse is impossible, new code MUST be modular and extendable: single-responsibility modules, explicit interfaces, shared sources of truth for tokens/mappings (a value defined twice is a defect). Duplicating existing logic instead of extracting and sharing it is forbidden.
+
+### IX. Visual Excellence
+Every user-facing surface MUST meet a high visual bar comparable to leading comparable products — deliberate motion, consistent color language, polished states (hover/focus/active), and coherent typography. Aesthetics are part of the definition of done, not decoration added later; UI work is not complete until it looks exceptional.
+
 ## Visualization Standards
 
 All visualizations must follow these standards:
@@ -94,4 +100,4 @@ All changes to this constitution and project code MUST follow Git Flow:
 4. **PR**: Open Pull Request referencing issue; require CI pass and self-review
 5. **Merge**: Squash merge to `main` after approval; delete branch
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-18 | **Last Amended**: 2026-08-25
+**Version**: 1.2.0 | **Ratified**: 2026-08-18 | **Last Amended**: 2026-08-26
