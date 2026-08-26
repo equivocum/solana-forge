@@ -1,6 +1,6 @@
 # Solana Forge
 
-Interactive visualization of Solana validator internals. Trace a transaction from signing to finalization through an 18-step guided tour, with every component, cryptographic operation, and consensus mechanism fully annotated.
+Interactive visualization of Solana validator internals, audited against Anza's Agave client at pinned release **v4.2.1**. Trace a transaction from signing to finalization through a 21-step guided tour, with every component, cryptographic operation, and consensus mechanism fully annotated and cited.
 
 ## What You'll Learn
 
@@ -8,11 +8,12 @@ The guided tour walks through the complete Solana validator architecture:
 
 <img width="1421" height="965" alt="Solana Validator Architecture" src="https://github.com/user-attachments/assets/f43eb11e-78c2-494a-9d11-7ea03ba4ae4e" />
 
-- **TPU Pipeline (Leader Path)**: QUIC Streamer → Fetch → SigVerify → Status Cache → Banking Stage → SVM → AccountsDB → PoH Recording → Broadcast
-- **TVU Pipeline (Validator Path)**: Turbine → Shred Fetch → Shred SigVerify → Window Service → Blockstore → Replay Stage → AccountsDB → Tower BFT
-- **Consensus**: Fork choice, voting, leader rotation, finalization
+- **Submission**: RPC API (JsonRpcService → SendTransactionService) → QUIC Streamer
+- **TPU Pipeline (Leader Path)**: Fetch → SigVerify (CPU-parallel) → Banking Stage (dedup & blockhash checks happen here) → SVM execution → PoH Recording (immediate) → Broadcast (Merkle shreds, 32:32 FEC)
+- **TVU Pipeline (Validator Path)**: Turbine → Shred Fetch → Shred SigVerify → Window Service → Blockstore → Replay Stage (parallel re-execution)
+- **Vote Return Loop & Finalization**: Tower BFT fork-choice gate → Voting Service → Gossip → Cluster Info Vote Listener → thresholds → root advancement → asynchronous state consolidation
 
-Click any component to see detailed internals including purpose, role, how it works, and why it matters.
+Click any component to see detailed internals including purpose, role, how it works, why it matters, and pinned-release citations linking to the exact Agave source lines that back every claim.
 
 ## Quick Start
 
@@ -60,9 +61,9 @@ solana-forge/
 │   │   ├── SimulationSidebar.tsx        # Step info, annotations, controls
 │   │   ├── ZoomPanel.tsx                # Detailed component inspector
 │   │   └── data/                        # Architecture definitions
-│   │       ├── components.ts            # 22 validator components
+│   │       ├── components.ts            # 32 validator components (audited vs Agave v4.2.1)
 │   │       ├── connections.ts           # Data flow + tx lifecycle path
-│   │       └── simulation-steps.ts      # 18-step guided tour sequence
+│   │       └── simulation-steps.ts      # 21-step guided tour sequence
 │   ├── hooks/useAnnotations.ts          # Annotation state management
 │   ├── services/
 │   │   ├── annotations.ts               # Annotation creation + formatting
@@ -80,7 +81,7 @@ solana-forge/
 
 Two visualization modes:
 
-- **Pipeline Flow**: See data flow through all 18 components with the animated transaction bubble tracing the full lifecycle
+- **Pipeline Flow**: See data flow through all 32 components with the animated transaction bubble tracing the full lifecycle
 - **Layered View**: Components organized by layer (networking, TPU, TVU, runtime, consensus, storage)
 
 ## Annotation System
