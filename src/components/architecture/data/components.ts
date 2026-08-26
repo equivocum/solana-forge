@@ -1635,6 +1635,9 @@ export const NATIVE_PROGRAMS: ArchitectureComponent = {
       'Precompiles: Ed25519, Secp256k1, Secp256r1',
     ]
   },
+  refs: [
+    'https://github.com/anza-xyz/agave/blob/v4.2.1/programs/bpf_loader/src/lib.rs#L93',
+  ],
   subComponents: [
     {
       id: 'precompiles',
