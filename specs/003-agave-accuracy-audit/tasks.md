@@ -178,5 +178,5 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 ## Phase 8: Convergence
 
 - [ ] T028 Render component `refs[]` as clickable pinned-release citations in ZoomPanel inspector per US4/AC1 + SC-002 (missing)
-- [ ] T029 Append per-step citation appendix (step # → component → REF links) to report.md per SC-001 (partial)
+- [x] T029 Append per-step citation appendix (step # → component → REF links) to report.md per SC-001 (partial)
 - [ ] T030 Add ≥1 compliant v4.2.1 anchor to remaining sub-components (quic-tls, crds, block-processor, transaction-processor, instruction-processor, others found by sweep) per FR-002 (partial)
