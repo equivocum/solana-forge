@@ -694,7 +694,7 @@ export const SHRED_FETCH: ArchitectureComponent = {
   position: 0,
   detail: {
     purpose: 'Receives shreds from network peers via Turbine.',
-    role: 'Entry point of TVU pipeline. Binds to TVU port (8002 UDP) with SO_REUSEPORT for parallel processing.',
+    role: 'Entry point of TVU pipeline. Binds the turbine and repair sockets and hands raw shreds to signature verification.',
     howItWorks: {
       title: 'Shred Reception',
       steps: [
@@ -705,7 +705,7 @@ export const SHRED_FETCH: ArchitectureComponent = {
       ]
     },
     whyItMatters: 'SO_REUSEPORT enables parallel packet processing across CPU cores, critical for high-throughput shred reception.',
-    metrics: ['TVU port: 8002 UDP', 'SO_REUSEPORT for parallel sockets']
+    metrics: ['Sockets: turbine + repair', 'Feeds shred-sig-verify']
   },
   refs: [
     'https://github.com/anza-xyz/agave/blob/v4.2.1/core/src/shred_fetch_stage.rs#L1',
@@ -845,7 +845,7 @@ export const RETRANSMIT: ArchitectureComponent = {
       ]
     },
     whyItMatters: 'Without retransmission, Turbine tree would only reach direct peers. Retransmission ensures full network coverage.',
-    metrics: ['DATA_PLANE_FANOUT: 200', 'Tree depth: 2-3 hops']
+    metrics: ['DATA_PLANE_FANOUT: 200', 'Max hops: MAX_NUM_TURBINE_HOPS = 4']
   },
   refs: [
     'https://github.com/anza-xyz/agave/blob/v4.2.1/turbine/src/retransmit_stage.rs#L659',
@@ -1146,12 +1146,8 @@ export const COMPUTE_BUDGET: ArchitectureComponent = {
     },
     whyItMatters: 'Compute budget prevents DoS via unlimited computation. Priority fees create a market for block space.',
     metrics: [
-      'Signature cost: 720 CUs',
-      'Write lock: 300 CUs per account',
-      'Data bytes: 4 CUs per byte',
-      'Default instruction: 200,000 CU',
-      'Max transaction: 1,400,000 CU',
-      'Block limit: 48M CU (100M with SIMD)',
+      'Default instruction budget: 200,000 CU',
+      'Max transaction budget: 1,400,000 CU',
     ]
   },
   refs: [
@@ -1631,7 +1627,6 @@ export const NATIVE_PROGRAMS: ArchitectureComponent = {
     whyItMatters: 'Native programs are executed directly by the runtime (not via sBPF VM). They provide the foundational primitives for all on-chain activity.',
     metrics: [
       'System Program: most fundamental',
-      'Vote Program: ~216,000 votes/day/validator',
       'Precompiles: Ed25519, Secp256k1, Secp256r1',
     ]
   },

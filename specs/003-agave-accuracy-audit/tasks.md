@@ -111,8 +111,8 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 
 **Independent Test**: Sample 10 links across categories; 10/10 open supporting lines at v4.2.1.
 
-- [ ] T024 [US4] Sweep all components/sub-components in src/components/architecture/data/components.ts ensuring ≥1 compliant pinned ref each (grammar: github.com/anza-xyz/agave/blob/v4.2.1/<path>#L<line>[-L<end>]); add citation-grammar test invariant + ≥1-ref invariant to tests/data-consistency.test.ts (contract C-5)
-- [ ] T024b [US4] FR-004 disposition sweep: scan every factual claim in src/components/architecture/data/components.ts, connection labels in connections.ts, and narration in simulation-steps.ts for claims lacking verifiable pinned-source support; remove each unverifiable claim or mark it with an explicit in-app "simplification" label; append disposition to matching report.md row; suite+tsc gate before commit
+- [x] T024 [US4] Sweep all components/sub-components in src/components/architecture/data/components.ts ensuring ≥1 compliant pinned ref each (grammar: github.com/anza-xyz/agave/blob/v4.2.1/<path>#L<line>[-L<end>]); add citation-grammar test invariant + ≥1-ref invariant to tests/data-consistency.test.ts (contract C-5)
+- [x] T024b [US4] FR-004 disposition sweep: scan every factual claim in src/components/architecture/data/components.ts, connection labels in connections.ts, and narration in simulation-steps.ts for claims lacking verifiable pinned-source support; remove each unverifiable claim or mark it with an explicit in-app "simplification" label; append disposition to matching report.md row; suite+tsc gate before commit
 - [ ] T025 [US4] Manual citation spot-check per specs/003-agave-accuracy-audit/quickstart.md §4: sample ≥10 links across different components/tour steps; record results in report.md methodology appendix
 
 **Checkpoint**: Trust layer complete — claims are independently checkable.
