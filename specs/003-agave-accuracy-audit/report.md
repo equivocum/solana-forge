@@ -1,22 +1,30 @@
 # Findings Report: Agave Accuracy Audit
 
-**Feature**: [spec.md](./spec.md) · **Pinned standard**: `anza-xyz/agave` tag `v4.2.1` · **Status**: IN PROGRESS (ledger seeded; dispositions land alongside their correcting commits)
+**Feature**: [spec.md](./spec.md) · **Pinned standard**: `anza-xyz/agave` tag `v4.2.1` · **Status**: FINAL (pre-merge — all 21 findings dispositioned, SC-003 satisfied)
 
-## Methodology (draft — finalized in T026)
+## Methodology
 
 ### Evidence standard
-- Every retained factual claim must resolve to a permalink of the form `https://github.com/anza-xyz/agave/blob/v4.2.1/<repo-relative-path>#L<line>` (range `#L<a>-L<b>` where appropriate) — data contract C-1.
-- Where the pinned source and secondary material (docs, blogs, talks) conflict, the pinned source governs (FR-003); the divergence is recorded as a finding row.
-- Claims without verifiable pinned-source support are removed or explicitly labeled `(simplification)` in-app per FR-004 / ui-tour-contract T-6, each with a ledger row classified `misleading-simplification`.
-- Constants whose *definitions* live in published Solana crates external to the agave repo (e.g., `solana-clock`, `solana-vote-program`) cannot receive an in-repo definitional permalink; they are anchored to authoritative in-repo usage/test sites instead, and noted here (see W-39/W-40).
+- Every retained factual claim resolves to a permalink of the form `https://github.com/anza-xyz/agave/blob/v4.2.1/<repo-relative-path>#L<line>` (range `#L<a>-L<b>` where appropriate) — data contract C-1, enforced by test invariant.
+- Where the pinned source and secondary material (docs, blogs, talks) conflict, the pinned source governs (FR-003); each divergence is a ledger row.
+- Claims without verifiable pinned-source support were removed or labeled `(simplification)` in-app per FR-004 / ui-tour-contract T-6, each tracked by a `misleading-simplification` row.
+- Constants whose *definitions* live in published Solana crates external to this repo (`solana-clock`, `solana-vote-program`) cannot receive an in-repo definitional permalink; they are anchored to authoritative in-repo usage/test sites instead (rows W-39/W-40).
 
-### Procedure (how every anchor below was derived)
-1. Check out tag `v4.2.1` content (`git grep <pattern> v4.2.1 -- <path>` against a local clone of `anza-xyz/agave`) — raw↔blob line parity makes these numbers directly usable in GitHub permalinks.
-2. Locate the governing symbol/constant for each research.md (D-2…D-12) claim; record `file#L<n>` or `#L<a>-L<b>`.
-3. During implementation, each corrected component's `refs[]` reuses these anchors; spot-check ≥10 permalinks in-browser (SC-002, quickstart §4).
+### Procedure (how every anchor was derived)
+1. Check out tag `v4.2.1` content locally (`git grep <pattern> v4.2.1 -- <path>` against a clone of `anza-xyz/agave`) — raw↔blob line parity makes these numbers directly usable in GitHub permalinks.
+2. Locate the governing symbol/constant for each research claim; record `file#L<n>` or `#L<a>-L<b>` in the Working Notes table.
+3. Corrected components reuse these anchors in their `refs[]`; the suite enforces grammar + ≥1 ref per component.
+4. Spot-check ≥10 permalinks across categories (SC-002) — results recorded below; 12/12 pass.
 
-### Re-audit against a newer tag (draft — expanded in T026)
-Pin the new tag → repeat steps 1–2 for every claim in the ledger's after-evidence column → diff old vs new anchors → any drift opens a new finding row instead of silently editing claims.
+### Re-auditing against a newer release
+1. Pin the new tag (e.g., `v5.x`) and repeat step 1 above for **every after-evidence anchor** in the ledger.
+2. For each anchor: if the symbol still exists at its line → link unchanged; if moved → re-grep the symbol and update the anchor (content unchanged).
+3. If the *behavior* changed (constant value differs, code deleted, stage renamed): do not silently edit the app. Open a new ledger row (prior = old verified claim, correction = new behavior), then fix content through the normal commit discipline.
+4. Re-run the full validation: suite invariants, citation spot-check sample, guided-tour walkthrough.
+5. Bump the pin everywhere at once (spec FR-002 grammar, contract C-1, tests) so no mixed-version citations can exist mid-migration.
+
+### Simplification labeling (FR-004 mechanism)
+Claims retained without direct pinned-source proof carry the literal suffix `(simplification)` in their WHY badge text; ZoomPanel renders these as italic notes. Each such claim has a `misleading-simplification` ledger row explaining the precision/clarity trade-off. Enforcement is manual during content review by design — no new annotation type was introduced, keeping the six-badge system stable.
 
 ## Working Notes — verified v4.2.1 line anchors (T002)
 

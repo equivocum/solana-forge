@@ -125,7 +125,7 @@ Each task below = one conventional commit (`fix:` or `docs:`+`fix:` pairing wher
 
 **Independent Test**: Read report.md cold; answer what was wrong, what changed, where proven.
 
-- [ ] T026 [US5] Finalize specs/003-agave-accuracy-audit/report.md: every row dispositioned (zero undispositioned — SC-003), classifications populated, before/after evidence columns complete, re-audit methodology section explains repeating process against a newer tag
+- [x] T026 [US5] Finalize specs/003-agave-accuracy-audit/report.md: every row dispositioned (zero undispositioned — SC-003), classifications populated, before/after evidence columns complete, re-audit methodology section explains repeating process against a newer tag
 
 **Checkpoint**: Institutional knowledge preserved.
 
