@@ -123,14 +123,6 @@ Method: each sampled permalink's `path#L<n>` was resolved against tag `v4.2.1` c
 
 ## Tour-Step Citation Map (SC-001 — T029)
 
-Every guided-tour step with the REF links its badges carry. All links pin tag `v4.2.1` (grammar C-1); spot-check results in the appendix above.
-
-| Step | Component | REF anchors (v4.2.1) |
-|------|-----------|----------------------|
-
-
-## Tour-Step Citation Map (SC-001 — T029)
-
 Every guided-tour step and the REF links its badges carry. All links pin tag `v4.2.1` (grammar C-1); sampling results in the appendix above.
 
 | Step | Component | REF anchors (v4.2.1) |
