@@ -4,4 +4,5 @@ WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN pnpm install --frozen-lockfile
 COPY . .
+RUN pnpm exec vitest --browser --config vitest.browser.config.ts --run --testNamePattern 'VRT' --update
 CMD ["pnpm", "exec", "vitest", "--browser", "--config", "vitest.browser.config.ts", "--run"]

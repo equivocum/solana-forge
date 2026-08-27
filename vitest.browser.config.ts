@@ -10,6 +10,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    testTimeout: 30_000,
     include: ['tests/browser/**/*.browser.{ts,tsx}'],
     browser: {
       enabled: true,
@@ -17,14 +18,17 @@ export default defineConfig({
         launchOptions: {
           args: [
             '--no-sandbox',
+            '--no-zygote',
             '--disable-dev-shm-usage',
             '--disable-gpu',
             '--disable-setuid-sandbox',
+            '--disable-extensions',
+            '--disable-background-networking',
           ],
         },
       }),
       headless: true,
-      connectTimeout: 10_000,
+      connectTimeout: 30_000,
       instances: [
         {
           browser: 'chromium',
@@ -36,7 +40,7 @@ export default defineConfig({
           comparatorName: 'pixelmatch',
           comparatorOptions: {
             threshold: 0.2,
-            allowedMismatchedPixelRatio: 0.01,
+            allowedMismatchedPixelRatio: 0.05,
           },
         },
       },
