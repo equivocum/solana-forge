@@ -4,8 +4,7 @@
 import { useState, useCallback } from 'react'
 import { ArchitectureView } from './components/architecture'
 import { useAnnotations } from './hooks/useAnnotations'
-
-type ViewMode = 'pipeline' | 'layered'
+import type { ViewMode } from './types/viewMode'
 
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('pipeline')
@@ -43,7 +42,7 @@ function App() {
   }, [])
 
   const handleSimNext = useCallback(() => {
-    setSimStep(s => Math.min(s + 1, 17))
+    setSimStep(s => Math.min(s + 1, 20))
   }, [])
 
   const handleSimBack = useCallback(() => {
@@ -79,6 +78,14 @@ function App() {
                 }`}
               >
                 Layered
+              </button>
+              <button
+                onClick={() => setViewMode('particles')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === 'particles' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Particles
               </button>
             </div>
 

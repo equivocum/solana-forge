@@ -38,6 +38,9 @@ pnpm-debug.log*
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+__screenshots__/
 
 # Rust
 Cargo.lock

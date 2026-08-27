@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/playwright:v1.62.1-noble
+RUN npm install -g pnpm
+WORKDIR /app
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+RUN pnpm install --frozen-lockfile
+COPY . .
+CMD ["pnpm", "exec", "vitest", "--browser", "--config", "vitest.browser.config.ts", "--run"]

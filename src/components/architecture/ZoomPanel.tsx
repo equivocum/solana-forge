@@ -1,7 +1,7 @@
 // ZoomPanel - Full detail view for a component
 // Shows purpose, role, how it works, why it matters, sub-components, and internals
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { ArchitectureComponent, SubComponent } from './data/components'
 
 // // STAGE: zoom_panel
@@ -125,7 +125,7 @@ export function ZoomPanel({ component, initialSubId, onClose }: ZoomPanelProps) 
 }
 
 // // STAGE: zoom_section
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">{title}</h3>

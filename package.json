@@ -11,9 +11,20 @@
     "lint": "eslint . --ext ts,tsx",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:browser": "vitest --browser --config vitest.browser.config.ts --run",
+    "test:browser:ui": "vitest --browser --config vitest.browser.config.ts --ui",
+    "test:visual": "vitest --browser --config vitest.browser.config.ts --run --testNamePattern 'VRT'",
+    "test:visual:update": "vitest --browser --config vitest.browser.config.ts --run --testNamePattern 'VRT' --update",
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-transition": "^3.0.9",
+    "d3-force": "^3.0.0",
+    "d3-quadtree": "^3.0.1",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
+    "d3-zoom": "^3.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -23,11 +34,16 @@
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-quadtree": "^3.0.6",
+    "@types/d3-zoom": "^3.0.8",
     "@types/node": "^26.2.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.4",
     "jsdom": "^25.0.1",
@@ -36,6 +52,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.67.0",
     "vite": "^6.4.3",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11",
+    "vitest-browser-react": "^2.2.0"
   }
 }
