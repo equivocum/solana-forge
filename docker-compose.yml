@@ -4,3 +4,11 @@ services:
     ports:
       - "3000:80"
     restart: unless-stopped
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    ipc: host
+    init: true
+    shm_size: '2gb'

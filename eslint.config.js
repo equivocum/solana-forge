@@ -69,7 +69,7 @@ export default [
     },
   },
   {
-    files: ['vite.config.*', 'vitest.config.*'],
+    files: ['vite.config.*', 'vitest.config.*', 'vitest.browser.config.*'],
     languageOptions: {
       globals: {
         __dirname: 'readonly',
