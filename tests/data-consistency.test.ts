@@ -7,6 +7,7 @@ import {
 } from '../src/components/architecture/data/connections'
 import { ALL_COMPONENTS } from '../src/components/architecture/data/components'
 import { LAYERS } from '../src/components/architecture/data/components'
+import { buildParticleGraph } from '../src/components/architecture/ParticleMap/useParticleGraph'
 
 const connectionSet = new Set(ALL_CONNECTIONS.map(c => `${c.from}->${c.to}`))
 const componentIds = new Set(ALL_COMPONENTS.map(c => c.id))
@@ -126,5 +127,53 @@ describe('Data consistency', () => {
       c.subComponents.forEach(sub => check(`${c.id}/${sub.id}`, sub.refs))
     })
     expect(problems).toEqual([])
+  })
+
+  describe('Particle map inventory parity', () => {
+    it('buildParticleGraph produces exactly one node per component and sub', () => {
+      const graph = buildParticleGraph()
+      const componentCount = ALL_COMPONENTS.length
+      const subCount = ALL_COMPONENTS.reduce((sum, c) => sum + c.subComponents.length, 0)
+      expect(graph.nodes).toHaveLength(componentCount + subCount)
+    })
+
+    it('every component node has unique id', () => {
+      const graph = buildParticleGraph()
+      const ids = graph.nodes.map(n => n.id)
+      expect(new Set(ids).size).toBe(ids.length)
+    })
+
+    it('every sub node has parent reference that resolves to a component node', () => {
+      const graph = buildParticleGraph()
+      const componentIds = new Set(graph.nodes.filter(n => n.kind === 'component').map(n => n.id))
+      graph.nodes
+        .filter(n => n.kind === 'sub')
+        .forEach(sub => {
+          expect(componentIds.has(sub.parentId!), `sub ${sub.id} missing parent ${sub.parentId}`)
+        })
+    })
+
+    it('link count equals connection count', () => {
+      const graph = buildParticleGraph()
+      expect(graph.links).toHaveLength(ALL_CONNECTIONS.length)
+    })
+
+    it('every link endpoint exists among component nodes', () => {
+      const graph = buildParticleGraph()
+      const componentIds = new Set(graph.nodes.filter(n => n.kind === 'component').map(n => n.id))
+      graph.links.forEach(link => {
+        expect(componentIds.has(link.source), `link source ${link.source} missing`)
+        expect(componentIds.has(link.target), `link target ${link.target} missing`)
+      })
+    })
+
+    it('onSpine flag matches TX_LIFECYCLE_PATH membership', () => {
+      const graph = buildParticleGraph()
+      graph.links.forEach(link => {
+        const expected =
+          TX_LIFECYCLE_PATH.includes(link.source) && TX_LIFECYCLE_PATH.includes(link.target)
+        expect(link.onSpine).toBe(expected)
+      })
+    })
   })
 })

@@ -58,11 +58,51 @@ Zone membership is a pure mapping function exported for tests and consistency ch
 
 ## D7 — Reduced motion
 
-**Decision**: `motionPreferences.ts` reads the media query once (+ listens for changes) and returns a profile `{driftAmplitude, particleSpeed, cameraMs}` used by forces, painter, and camera. Reduced-motion ⇒ near-static drift, slow sparse particles, instant camera cuts; clustering/zones/paths remain fully legible (FR-015→FR-013 requirement).
+**Decision**: `motionPreferences.ts` reads the media query once (+ listens for changes) and returns a profile `{driftAmplitude, particleSpeed, cameraMs}` used by forces, painter, and camera. Reduced-motion ⇒ near-static drift, slow sparse particles, instant camera cuts; clustering/zones/paths remain fully legible (FR-015); tour animations also respect reduced-motion (FR-013).
 
 ## D8 — Testing strategy
 
 **Decision**: Push all logic into pure modules (`useParticleGraph`, zone/cluster mappers, explanation composer, theme maps) so `tests/particleMap.test.ts` covers them headlessly; extend `tests/data-consistency.test.ts` with inventory-parity checks importing the same builder the view uses (SC-001 automated). Visual smoothness/aesthetics (SC-002/004, Principle IX) get a scripted manual QA pass in quickstart.md — not automatable reliably in jsdom.
+
+## D9 — Migration: force-graph → Raw D3 + Canvas
+
+**Status**: ✅ COMPLETED (2026-08-27)
+
+**Decision**: Replace the `force-graph` npm package with direct `d3-force` + `d3-zoom` + `d3-quadtree` + native Canvas API. The simulation hook (`useForceSimulation.ts`) owns the canvas element, render loop, and all interaction directly — no third-party graph library wrapper.
+
+**Rationale**: During implementation, force-graph proved difficult to integrate correctly:
+
+1. **Opaque rendering internals**: force-graph does NOT translate the canvas context to node positions before calling `nodeCanvasObject`. The library's own default renderer uses `node.x, node.y` explicitly (force-graph.js:11582), but custom callbacks must do the same — this is undocumented and caused all nodes to render at (0,0), appearing invisible.
+
+2. **Container sizing**: force-graph defaults `width`/`height` to `window.innerWidth/Height`, not the container's dimensions. Setting `.width()/.height()` is mandatory but not documented prominently. Combined with React lifecycle timing, this caused persistent sizing issues despite ResizeObserver guards.
+
+3. **Additional rendering pipeline issues**: After fixing the coordinate bug and container sizing, the particle map still did not render due to further undiscovered issues in the force-graph rendering pipeline. Each fix revealed another layer of hidden behavior.
+
+4. **No TypeScript types**: force-graph has no `@types/force-graph` package, requiring `any` casts throughout.
+
+Raw D3 + Canvas eliminates all of these: full control over the render loop, no hidden behavior, native TypeScript types, and straightforward debugging. The existing force functions (zone, cluster, ambient) are already d3-force compatible and require zero changes.
+
+**Alternatives considered**:
+- *Continue debugging force-graph* — each fix revealed another hidden layer; diminishing returns.
+- *react-force-graph* — React wrapper around the same library; same underlying issues.
+- *@logixode/force-graph-lib* — wrapper on top of force-graph; adds complexity without solving root cause.
+
+**Migration completed (Phase 9, T051-T072)**:
+- `camera.ts` — deleted (dead code, designed for force-graph wrapper, never imported)
+- `useForceGraphInstance.ts` — replaced by `useForceSimulation.ts`
+- `force-graph` dependency — removed from package.json
+- Added direct dependencies: `d3-force`, `d3-zoom`, `d3-quadtree`, `d3-selection`, `d3-transition`
+- Added type definitions: `@types/d3-force`, `@types/d3-zoom`, `@types/d3-quadtree`, `@types/d3-selection`, `@types/d3-transition`
+
+**Reusable from force-graph era** (zero changes needed):
+- `useParticleGraph.ts` — data builder, no force-graph dependency
+- `painting/bubblePainter.ts` — already uses `node.x, node.y` (fixed during force-graph era)
+- `painting/spineParticles.ts` — particle config, no force-graph dependency
+- `forces/zoneForces.ts` — d3-force compatible, used directly
+- `forces/clusterForces.ts` — d3-force compatible, used directly
+- `ConnectionPopover.tsx` — UI component, no force-graph dependency
+- `useTourState.ts` — tour logic, no force-graph dependency
+- `motionPreferences.ts` — motion profile, no force-graph dependency
 
 ## Reuse Inventory (Principle VIII ledger)
 

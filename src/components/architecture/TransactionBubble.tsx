@@ -16,14 +16,11 @@ interface TransactionBubbleProps {
 export function TransactionBubble({ isRunning, currentStep, components }: TransactionBubbleProps) {
   const [hash, setHash] = useState('')
 
-  // Generate a mock transaction hash
+  // Generate a mock transaction hash on each step change
   useEffect(() => {
-    const generateHash = () => {
-      return `0x${Array.from({ length: 16 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('')}`
-    }
-    setHash(generateHash())
+    setHash(`0x${Array.from({ length: 16 }, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('')}`)
   }, [currentStep])
 
   const currentComponentId = TX_LIFECYCLE_PATH[currentStep]

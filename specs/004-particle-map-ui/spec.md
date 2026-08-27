@@ -17,7 +17,7 @@
 - Q: What should clicking a bubble open as its educational material? → A: The existing audited content panels (purpose, role, how-it-works, metrics) including their pinned Agave v4.2.1 citations, reused verbatim
 - Q: How should the guided tour behave in relation to the new particle map? → A: The guided tour runs on all three view modes; in the particle map each step focuses/highlights its bound bubble
 - Q: When exploring the particle map, should the learner be able to pan and zoom the scene, and how do bubble labels stay readable? → A: Free panning by dragging and zooming via scroll/pinch; labels show on hover at any zoom level and persist visibly once zoomed in close enough
-- Q: How should component clusters be arranged spatially in the particle map? → A: Soft lifecycle-ordered zones (ingress → pipeline → consensus → storage) with bubbles drifting freely inside their zone
+- Q: How should component clusters be arranged spatially in the particle map? → A: Soft lifecycle-ordered zones (ingress → tpu-pipeline → tvu-replay → runtime-shared → consensus → storage-networking) with bubbles drifting freely inside their zone
 - Q: Should bubbles and connections be operable via keyboard in the particle map? → A: Deferred — this feature ships pointer/touch interaction only; keyboard operability may be revisited later
 - Q: Should the guided-tour step-advance defect be repaired as part of this feature? → A: Yes — fix it in this feature; US4-AC1 ("unchanged") is read as "unregressed", so all three modes get complete 21-step tours
 
@@ -108,12 +108,12 @@ A returning learner switches between Pipeline Flow, Layered View, and the partic
 - **FR-001**: The product MUST offer a third view mode that renders every validator component and sub-component as an individual interactive bubble/particle, matching the underlying model one-to-one — no missing, duplicated, or extra elements
 - **FR-002**: Each sub-component bubble MUST remain positioned adjacent to or within its parent's neighborhood throughout all motion
 - **FR-003**: All modeled connections MUST be depicted between their corresponding bubbles, preserving direction, label, and kind
-- **FR-004**: With no user input, the scene MUST exhibit continuous ambient motion — bubbles drifting gently within their clusters — and transaction particles MUST stream continuously along the transaction lifecycle path
+- **FR-004**: With no user input, the scene MUST exhibit continuous ambient motion — bubbles drifting gently within their clusters (motion visible within 5 s per SC-002, frame rate ≥ 30 fps) — and transaction particles MUST stream continuously along the transaction lifecycle path
 - **FR-005**: Visual grouping and lifecycle coloring MUST reuse the established semantic color language of the existing views (same meaning = same color across modes)
 
 **Interaction & Learning Loop**
 
-- **FR-006**: Hovering a bubble MUST produce an immediate visible animation on that bubble and emphasize its incident connections and neighboring bubbles
+- **FR-006**: Hovering a bubble MUST produce a visible animation within 100 ms on that bubble and emphasize its incident connections and neighboring bubbles
 - **FR-007**: Clicking a component bubble MUST open that component's audited educational material verbatim — purpose, role, internal mechanics, metrics — including at least one working pinned v4.2.1 citation
 - **FR-008**: Clicking a sub-component bubble MUST open that sub-component's own audited material, including its citations
 - **FR-009**: Interacting with a connection MUST present a short explanation of that data-flow hop (what travels, why it goes there), citing the pinned source where the audit established one
@@ -121,11 +121,13 @@ A returning learner switches between Pipeline Flow, Layered View, and the partic
 
 **Navigation**
 
-- **FR-011**: The particle map MUST support free panning (drag) and zooming (scroll/pinch) across the full scene; bubble labels MUST be visible while hovering at any zoom level and MUST remain permanently visible once the view is zoomed in sufficiently close
+- **FR-011**: The particle map MUST support free panning (drag) and zooming (scroll/pinch) across the full scene; bubble labels MUST be visible while hovering at any zoom level and MUST remain permanently visible once the view is zoomed to ≥ 150% of default zoom
 
 **Spatial Organization**
 
-- **FR-012**: Component clusters MUST settle within soft zones roughly following transaction lifecycle order (ingress → pipeline → consensus → storage); bubbles drift freely inside their zone, and zone boundaries guide placement without acting as rigid walls
+- **FR-012**: Component clusters MUST settle within soft zones following the transaction lifecycle order defined by zoneAnchors() (ingress → tpu-pipeline → tvu-replay → runtime-shared → consensus → storage-networking); bubbles drift freely inside their zone, and zone boundaries guide placement without acting as rigid walls
+
+For the avoidance of doubt, "soft zone" means the zone force attracts nodes toward the zone anchor with configurable strength; no hard boundary is enforced. Compliance is verified by the zone assignment being total (every node gets exactly one zone) — see data-model.md ZoneDef validation.
 
 **Guided Tour Integration**
 
@@ -135,7 +137,7 @@ A returning learner switches between Pipeline Flow, Layered View, and the partic
 
 - **FR-014**: The two existing view modes MUST remain available with their current behavior and content unregressed
 - **FR-015**: When the learner's environment signals reduced-motion preference, the idle simulation MUST reduce to minimal movement while preserving legibility of clusters, connections, and particle paths
-- **FR-016**: At small viewport sizes the map MAY compress spacing and abbreviate labels but MUST NOT hide or strand any bubble or connection
+- **FR-016**: At small viewport sizes the map MAY compress spacing and abbreviate labels (abbreviation shall not truncate more than 30% of label length) but MUST NOT hide or strand any bubble or connection
 - **FR-017**: The automated data-consistency suite MUST be extended so the particle map cannot ship with a bubble set that diverges from the component/connection model
 
 **Process Constraints (constitution-mandated)**
@@ -157,7 +159,7 @@ A returning learner switches between Pipeline Flow, Layered View, and the partic
 - **SC-001**: 100% inventory parity — every modeled component and sub-component appears exactly once as a bubble and every connection is drawn, verified by the extended automated consistency checks passing with zero failures
 - **SC-002**: Motion is observable within 5 seconds of opening the view with zero interaction, and transaction particles are seen traversing successive lifecycle hops continuously over at least one minute of observation
 - **SC-003**: Sampled verification — clicking 10 randomly chosen bubbles and 3 randomly chosen connections opens the correct explanation each time, and every sampled explanation's citation link opens the pinned release at the claimed file and line (13/13 pass)
-- **SC-004**: Hover feedback is perceptibly immediate on every bubble, and animation remains smooth throughout a 60-second session on an ordinary laptop at full dataset size — no stutter, no frozen frames
+- **SC-004**: Hover feedback is perceptibly immediate on every bubble, and animation remains smooth throughout a 60-second session on a 2020 MacBook Air M1 (or equivalent baseline) at full dataset size — no stutter, no frozen frames
 - **SC-005**: A first-time learner completes the full guided tour in the particle map from submission to finalization without dead-end steps or manual searching for the focused bubble
 - **SC-006**: Mode switching among the three views never shows contradictory content — identical elements inspected side-by-side match in naming, facts, citations, and lifecycle colors
 

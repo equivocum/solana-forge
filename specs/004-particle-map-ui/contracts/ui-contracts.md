@@ -76,7 +76,7 @@ export function useForceGraphInstance(
 ): RefObject<ForceGraphController>
 ```
 
-The `force-graph` library is referenced **only** inside this hook plus painters — swappable later without touching views or tests.
+The `force-graph` library is referenced **only** inside this hook plus painters — swappable later without touching views or tests. **Migration planned**: This hook will be replaced by `useForceSimulation.ts` (raw D3 + Canvas) in Phase 9; see research.md D9.
 
 ## 6. Painting (pure functions over canvas ctx)
 
@@ -97,10 +97,11 @@ export const SPINE_PARTICLE_CONFIG: { speed: number; width: number } // scaled b
 export interface CategoryColorTokens { bg: string; border: string; text: string; activeBg: string; activeBorder: string }
 export const CATEGORY_COLORS: Record<ComponentCategory, CategoryColorTokens>       // moved from ComponentNode.tsx
 export const SUB_CATEGORY_COLORS: Record<ComponentCategory, CategoryColorTokens>    // moved from ComponentNode.tsx
-export function categoryHex(category: ComponentCategory): { fill: string; glow: string; label: string }
+export interface CategoryHexTokens { fill: string; glow: string; label: string }
+export const CATEGORY_HEX: Record<ComponentCategory, CategoryHexTokens>            // used by canvas painter
 ```
 
-`ComponentNode.tsx` imports from here; painter uses the hex twins. Hue values remain identical across modes (spec FR-005/US4-AC3).
+`ComponentNode.tsx` imports from here; painter uses the hex constants directly. Hue values remain identical across modes (spec FR-005/US4-AC3).
 
 ## 8. Connection explanations (pure composer)
 

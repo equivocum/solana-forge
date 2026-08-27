@@ -1,9 +1,9 @@
 // SimulationSidebar - Guided tour annotations in a right sidebar layout
 // Replaces the floating overlay with a dedicated layout element
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { SIMULATION_STEPS } from './data/simulation-steps'
-import type { SimulationStep } from './data/simulation-steps'
+
 import { ANNOTATION_COLORS, ANNOTATION_ICONS } from '../../services/annotationTheme'
 
 interface SimulationSidebarProps {
@@ -31,7 +31,7 @@ export function SimulationSidebar({
   onNext,
   onBack,
 }: SimulationSidebarProps) {
-  const [activeAnnotation, setActiveAnnotation] = useState<SimulationStep | null>(null)
+  const activeAnnotation = SIMULATION_STEPS[currentStep] ?? null
   const timerRef = useRef<number | null>(null)
 
   // Auto-advance steps when running
@@ -41,7 +41,6 @@ export function SimulationSidebar({
         clearInterval(timerRef.current)
         timerRef.current = null
       }
-      // Keep activeAnnotation visible when paused
       return
     }
 
@@ -50,8 +49,6 @@ export function SimulationSidebar({
       onPause()
       return
     }
-
-    setActiveAnnotation(step)
 
     const duration = slowMotion ? step.duration * 4 : step.duration / speed
 
@@ -71,12 +68,6 @@ export function SimulationSidebar({
       }
     }
   }, [isRunning, currentStep, speed, slowMotion, onStepChange, onPause])
-
-  // Sync annotation with currentStep
-  useEffect(() => {
-    const step = SIMULATION_STEPS[currentStep]
-    if (step) setActiveAnnotation(step)
-  }, [currentStep])
 
   if (!activeAnnotation) return null
 

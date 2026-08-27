@@ -4,15 +4,16 @@
 import { useState, useCallback } from 'react'
 import { PipelineFlowView } from './PipelineFlowView'
 import { LayeredView } from './LayeredView'
+import { ParticleMapView } from './ParticleMap/ParticleMapView'
 import { ZoomPanel } from './ZoomPanel'
 import { TransactionBubble } from './TransactionBubble'
 import { SimulationSidebar } from './SimulationSidebar'
 import { ALL_COMPONENTS, TX_LIFECYCLE_PATH, SIMULATION_STEPS } from './data'
 import type { ArchitectureComponent } from './data/components'
 import { useAnnotations } from '../../hooks/useAnnotations'
+import type { ViewMode } from '../../types/viewMode'
 
 // // STAGE: architecture_view
-type ViewMode = 'pipeline' | 'layered'
 
 interface ArchitectureViewProps {
   viewMode: ViewMode
@@ -91,7 +92,7 @@ export function ArchitectureView({
     <div className="h-full flex min-h-0">
       {/* Main content area */}
       <div className="flex-1 bg-gray-800/30 rounded-xl p-4 min-w-0">
-        {viewMode === 'pipeline' ? (
+        {viewMode === 'pipeline' && (
           <PipelineFlowView
             activeComponent={activeComponent}
             highlightedComponent={hoveredComponent?.id || null}
@@ -102,8 +103,20 @@ export function ArchitectureView({
             txPath={TX_LIFECYCLE_PATH}
             txPosition={simStep}
           />
-        ) : (
+        )}
+        {viewMode === 'layered' && (
           <LayeredView
+            activeComponent={activeComponent}
+            highlightedComponent={hoveredComponent?.id || null}
+            currentStepId={TX_LIFECYCLE_PATH[simStep] || null}
+            onComponentClick={handleComponentClick}
+            onComponentHover={handleComponentHover}
+            onSubClick={handleSubClick}
+          />
+        )}
+        {viewMode === 'particles' && (
+          <ParticleMapView
+            components={ALL_COMPONENTS}
             activeComponent={activeComponent}
             highlightedComponent={hoveredComponent?.id || null}
             currentStepId={TX_LIFECYCLE_PATH[simStep] || null}
