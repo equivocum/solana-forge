@@ -25,7 +25,21 @@ export default defineConfig({
       }),
       headless: true,
       connectTimeout: 10_000,
-      instances: [{ browser: 'chromium' }],
+      instances: [
+        {
+          browser: 'chromium',
+          viewport: { width: 1280, height: 720 },
+        },
+      ],
+      expect: {
+        toMatchScreenshot: {
+          comparatorName: 'pixelmatch',
+          comparatorOptions: {
+            threshold: 0.2,
+            allowedMismatchedPixelRatio: 0.01,
+          },
+        },
+      },
     },
   },
   resolve: {

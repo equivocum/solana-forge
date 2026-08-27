@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:browser": "vitest --browser --config vitest.browser.config.ts --run",
     "test:browser:ui": "vitest --browser --config vitest.browser.config.ts --ui",
+    "test:visual": "vitest --browser --config vitest.browser.config.ts --run --testNamePattern 'VRT'",
+    "test:visual:update": "vitest --browser --config vitest.browser.config.ts --run --testNamePattern 'VRT' --update",
     "format": "prettier --write ."
   },
   "dependencies": {
